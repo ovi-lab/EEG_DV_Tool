@@ -1,0 +1,21 @@
+# Python virtual environment
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VSCode or other IDE settings
+.vscode/
+.idea/
+
+# MacOS and system files
+.DS_Store
+
+# Optional: Large video files (if you don't want them in GitHub)
+*.mp4
+
+# Logs or temp data
+*.log

@@ -20,8 +20,16 @@ def get_videos():
         return df.to_dict(orient='records')
     else:
         return []
-    
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     videos = get_videos()
     return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
+
+
+
+# def get_eeg_summary(video_id: int, region: str = "all", index: str = "engagement", particpant_id: int = 0):
+# @Hamza please complete the function below
+# This function calculates the signal - your function needs to filter the data in eeg.csv based on the video_id, region, index, and participant_id.
+    
+# @app.get("/eeg-summary/{video_id}")

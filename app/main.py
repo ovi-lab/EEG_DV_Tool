@@ -12,20 +12,28 @@ static_path = os.path.join(base_dir, "static")
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-VALID_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
+VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 
-def get_videos():
-    if os.path.exists(VALID_CSV_PATH):
-        df = pd.read_csv(VALID_CSV_PATH)
+def home():
+    if os.path.exists(VIDEO_CSV_PATH):
+        df = pd.read_csv(VIDEO_CSV_PATH)
         return df.to_dict(orient='records')
     else:
         return []
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    videos = get_videos()
+    videos = home()
     return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
 
+
+@app.get("/player", response_class=HTMLResponse)
+def player(request: Request, id: str):
+    df = pd.read_csv(VIDEO_CSV_PATH)
+    video = df[df["id"] == int(id)].to_dict(orient="records")
+    if not video:
+        return HTMLResponse("Video not found", status_code=404)
+    return templates.TemplateResponse("player.html", {"request": request, "video": video[0]})
 
 
 # def get_eeg_summary(video_id: int, region: str = "all", index: str = "engagement", particpant_id: int = 0):

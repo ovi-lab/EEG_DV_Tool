@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ video.title }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>{{ video.title }}</h1>
+
+  <video width="640" height="360" controls>
+    <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+
+  <div id="eeg-viewer" style="margin-top: 2em; border: 1px dashed gray; padding: 1em;">
+    <h3>EEG Signal Viewer (Coming Soon)</h3>
+    <p>This space is reserved for the interactive EEG chart.</p>
+  </div>
+</body>
+</html>

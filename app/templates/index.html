@@ -8,7 +8,7 @@
         <h1>Micro Data Videos</h1>
         <div class="card-container">
             {% for video in videos %}
-                <div class="card" onclick="console.log('Video ID:', '{{ video.id }}')">
+                <div class="card" onclick="location.href='/player?id={{ video.id }}'">
                 <div class="color-block" style="background-color: {{ video.color or '#cccccc' }};"></div>
                     <div class="card-info">
                         <h2>{{ video.title }}</h2>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Dashboard</title>
+        <link rel="stylesheet" href="/static/style.css">
+    </head>
+    <body>
+        <h1>Micro Data Videos</h1>
+        <div class="card-container">
+            {% for video in videos %}
+                <div class="card" onclick="console.log('Video ID:', '{{ video.id }}')">
+                <div class="color-block" style="background-color: {{ video.color or '#cccccc' }};"></div>
+                    <div class="card-info">
+                        <h2>{{ video.title }}</h2>
+                        <p>Duration: {{ video.duration }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </body>
+</html>

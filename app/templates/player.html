@@ -7,25 +7,24 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 
-<body style="height: 100vh;">
-  <div class="main"
-    style="font-family: Arial, Helvetica, sans-serif; background-color: #f9f9f9; padding: 2em; display: flex; flex-direction: column; align-items: center; height: 100%;">
+<body style="font-family: Arial, Helvetica, sans-serif; background-color: #f9f9f9; padding: 2em; display: flex; flex-direction: column; align-items: center; height: 100vh; width: 100vw; margin: 0; overflow: clip;">
     <h1>{{ video.title }}</h1>
-    <div id="viewer-container" style="display: flex; margin-top: 2em; width: 640px; gap: 1.5em; height: 100%;">
-      <div style="height: auto;">
+    <div id="viewer-container" style="display: flex; margin-top: 2em; width: 640px; gap: 1.5em; flex-direction: row-reverse; height: 100%;">
+      <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1; max-width: 640px;">
         <video controls
-          style="width: 640px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); height: auto;">
+          style="width: 640px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); height: 50%;">
           <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
           Your browser does not support the video tag.
         </video>
         <div id="eeg-viewer"
-          style="flex: 1; background-color: #fff; padding: 1em; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);">
+          style="background-color: #fff; padding: 1em; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);">
           <h3 style="margin-top: 0; font-size: 1.2em; margin-bottom: 1em;">EEG Signal Viewer</h3>
           <canvas id="eegChart" style="width: 100%;"></canvas>
         </div>
       </div>
+      <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1;">
       <div id="filters"
-        style="width: 180px; padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em;">
+        style="width: 180px; padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 300px;">
         <label for="participantFilter" style="font-weight: bold; font-size: 0.9em;">Participants:</label>
         <select id="participantFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;"
           multiple>
@@ -52,6 +51,7 @@
         <button id="applyFilters"
           style="padding: 0.5em; background-color: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 0.5em;">Apply
           Filters</button>
+      </div>
       </div>
     </div>
     <input type="hidden" id="videoId" value="{{ video.id }}">
@@ -106,7 +106,6 @@
           });
       });
     </script>
-  </div>
 </body>
 
 </html>

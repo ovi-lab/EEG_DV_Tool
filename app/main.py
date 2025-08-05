@@ -1,7 +1,9 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
+
 
 import pandas as pd
 import numpy as np
@@ -15,6 +17,7 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
+EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 
 def home():
     if os.path.exists(VIDEO_CSV_PATH):
@@ -28,23 +31,24 @@ async def read_root(request: Request):
     videos = home()
     return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
 
-
 @app.get("/player", response_class=HTMLResponse)
 def player(request: Request, id: str):
     df = pd.read_csv(VIDEO_CSV_PATH)
     video = df[df["id"] == int(id)].to_dict(orient="records")
     if not video:
         return HTMLResponse("Video not found", status_code=404)
-    return templates.TemplateResponse("player.html", {"request": request, "video": video[0]})
+    eeg_data = get_eeg_summary(video_id=video[0]["id"], participant_id=[105, 107, 2, 7], region="all", index="engagement")
+    eeg_list = eeg_data.tolist()
+    return templates.TemplateResponse("player.html", {"request": request, "video": video[0], "eeg_data": eeg_list})
 
 def smooth_signal(signal, window_len=5):
     return np.convolve(signal, np.ones(window_len)/window_len, mode='same')
 
-def get_eeg_summary(video_id: str, participant_id: list | int, region: str = "all", index: str = "engagement"):
+def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "all", index: str = "engagement"):
     """
     This function calculates the average index using the data in eeg.csv based on the video_id, participant_id, desired index, and region.
    
-    video_id: One of the videos: "v1", "v2", "v3", 'v4', 'v5', 'v6'.
+    video_id: One of the videos: 0, 1, 2, 3. //Ghazaleh: I just changed this to int because in other files it is int.
     participant_id: Currently: 105, 107, 2, 7, 10, 14. Accepts a list of IDs or just one integer.
     region: Brain regions: all, frontal, frontocentral, parietal.
     index: engagement, attention.
@@ -53,7 +57,9 @@ def get_eeg_summary(video_id: str, participant_id: list | int, region: str = "al
     """ 
     # @app.get("/eeg-summary/{video_id}")
     # Load EEG CSV
-    df = pd.read_csv("static/data/eeg.csv")
+    print("Loading EEG Data...")
+    df = pd.read_csv(EEG_CSV_PATH)
+    print("EEG Data Loaded")
 
     # Convert string lists in PSD columns back to Python lists
     for col in ['theta_psd', 'alpha_psd', 'beta_psd']:
@@ -112,3 +118,18 @@ def get_eeg_summary(video_id: str, participant_id: list | int, region: str = "al
 
     # Final average across participants
     return np.mean(trimmed, axis=0)
+
+@app.get("/api/eeg")
+def get_filtered_eeg_api(
+    video: int,
+    participant: list[int] = Query(None),
+    region: str = "all",
+    index: str = "engagement"
+):
+    try:
+        if participant is None:
+            participant = [105, 107, 2, 7]
+        result = get_eeg_summary(video, participant, region, index)
+        return JSONResponse(content=result.tolist())
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})

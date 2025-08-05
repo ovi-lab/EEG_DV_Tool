@@ -32,6 +32,8 @@
           <option value="107">107</option>
           <option value="2">2</option>
           <option value="7">7</option>
+          <option value="10">10</option>
+          <option value="14">14</option>
         </select>
 
         <label for="regionFilter" style="font-weight: bold; font-size: 0.9em;">Region:</label>
@@ -57,8 +59,45 @@
     <input type="hidden" id="videoId" value="{{ video.id }}">
     <script>
       const initialData = {{ eeg_data | tojson }};
+      const stimulusColors = {
+        0: "#e6194b",
+        1: "#3cb44b",
+        2: "#ffe119",
+        3: "#0082c8",
+        4: "#f58231",
+        5: "#911eb4",
+        6: "#46f0f0",
+        7: "#f032e6",
+        8: "#d2f53c",
+        9: "#fabebe",
+        10: "#008080",
+        11: "#e6beff"
+      };
       const ctx = document.getElementById('eegChart').getContext('2d');
 
+      const stimuliOverlayPlugin = {
+      id: 'stimuli-overlay',
+      beforeDraw(chart, args, options) {
+        const ctx = chart.ctx;
+        const xScale = chart.scales['x'];
+        const chartArea = chart.chartArea;
+
+        if (!options.stimuli || !Array.isArray(options.stimuli)) return;
+
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+
+        for (const s of options.stimuli) {
+          const color = stimulusColors[s.stimulus_id] || "#cccccc";
+          const xStart = xScale.getPixelForValue(s.start_time);
+          const xEnd = xScale.getPixelForValue(s.end_time);
+          ctx.fillStyle = color;
+          ctx.fillRect(xStart, chartArea.top, xEnd - xStart, chartArea.bottom - chartArea.top);
+        }
+
+        ctx.restore();
+      }
+    };
       // Step 1: Initialize chart with initial data
       let chart = new Chart(ctx, {
         type: 'line',
@@ -78,8 +117,14 @@
           scales: {
             x: { title: { display: true, text: 'Time (index)' } },
             y: { title: { display: true, text: 'Amplitude' } }
+          },
+          plugins:{
+            'stimuli-overlay':{
+              stimuli: []
+            }
           }
-        }
+        },
+        plugins: [stimuliOverlayPlugin]
       });
 
       // Step 2: Update chart when user applies filters
@@ -93,17 +138,23 @@
         const participantParams = selectedOptions.map(opt => `participant=${opt.value}`).join('&');
 
         const query = `/api/eeg?video=${videoId}&region=${region}&index=${index}&${participantParams}`;
+        const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
-        fetch(query)
-          .then(res => res.json())
-          .then(data => {
-            chart.data.labels = Array.from({ length: data.length }, (_, i) => i);
-            chart.data.datasets[0].data = data;
-            chart.update();
-          })
-          .catch(err => {
-            console.error("Failed to fetch EEG data:", err);
-          });
+        Promise.all([
+          fetch(query).then(res => res.json()),
+          fetch(stimuliQuery).then(res => res.json())
+        ])
+        .then(([eegData, stimuliData]) => {
+          chart.data.labels = Array.from({ length: eegData.length }, (_, i) => i);
+          chart.data.datasets[0].data = eegData;
+
+          // Set new stimuli
+          chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
+          chart.update();
+        })
+        .catch(err => {
+          console.error("Failed to fetch EEG or stimuli data:", err);
+        });
       });
     </script>
 </body>

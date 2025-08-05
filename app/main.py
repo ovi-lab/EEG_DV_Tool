@@ -18,6 +18,24 @@ templates = Jinja2Templates(directory="app/templates")
 
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
+VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
+
+stimuli = {
+    0: {"label": "Sound effect", "color": "#e6194b"},
+    1: {"label": "Zoom", "color": "#3cb44b"},
+    2: {"label": "Pointing", "color": "#ffe119"},
+    3: {"label": "Highlighting", "color": "#0082c8"},
+    4: {"label": "Gradual Text", "color": "#f58231"},
+    5: {"label": "Gradual appearance", "color": "#911eb4"},
+    6: {"label": "Camera Angle", "color": "#46f0f0"},
+    7: {"label": "Animation", "color": "#f032e6"},
+    8: {"label": "Map", "color": "#d2f53c"},
+    9: {"label": "Area", "color": "#fabebe"},
+    10: {"label": "Pictograph", "color": "#008080"},
+    11: {"label": "Size Change", "color": "#e6beff"},
+}
+
+
 
 def home():
     if os.path.exists(VIDEO_CSV_PATH):
@@ -49,7 +67,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     This function calculates the average index using the data in eeg.csv based on the video_id, participant_id, desired index, and region.
    
     video_id: One of the videos: 0, 1, 2, 3. //Ghazaleh: I just changed this to int because in other files it is int.
-    participant_id: Currently: 105, 107, 2, 7. Accepts a list of IDs or just one integer.
+    participant_id: Currently: 105, 107, 2, 7, 10, 14. Accepts a list of IDs or just one integer.
     region: Brain regions: all, frontal, frontocentral, parietal.
     index: engagement, attention.
 
@@ -119,6 +137,18 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     # Final average across participants
     return np.mean(trimmed, axis=0)
 
+@app.get("/api/stimuli")
+def get_video_stimuli(video_id: int):
+    if os.path.exists(VIDEO_STIMULI_CSV_PATH):
+        stimuli_df = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
+        try:
+            filtered = stimuli_df[stimuli_df["video_id"] == video_id]
+            return JSONResponse(content=filtered.to_dict(orient="records"))
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
+    else:
+        return []
+    
 @app.get("/api/eeg")
 def get_filtered_eeg_api(
     video: int,
@@ -127,9 +157,11 @@ def get_filtered_eeg_api(
     index: str = "engagement"
 ):
     try:
+        print(participant)
         if participant is None:
-            participant = [105, 107, 2, 7]
+            participant = [105, 107, 2, 7, 10, 14]
         result = get_eeg_summary(video, participant, region, index)
         return JSONResponse(content=result.tolist())
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
+    

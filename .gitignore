@@ -15,7 +15,7 @@ __pycache__/
 .DS_Store
 
 # Optional: Large video files (if you don't want them in GitHub)
-*.mp4
+# *.mp4
 
 # Logs or temp data
 *.log

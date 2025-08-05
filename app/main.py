@@ -49,7 +49,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     This function calculates the average index using the data in eeg.csv based on the video_id, participant_id, desired index, and region.
    
     video_id: One of the videos: 0, 1, 2, 3. //Ghazaleh: I just changed this to int because in other files it is int.
-    participant_id: Currently: 105, 107, 2, 7. Accepts a list of IDs or just one integer.
+    participant_id: Currently: 105, 107, 2, 7, 10, 14. Accepts a list of IDs or just one integer.
     region: Brain regions: all, frontal, frontocentral, parietal.
     index: engagement, attention.
 

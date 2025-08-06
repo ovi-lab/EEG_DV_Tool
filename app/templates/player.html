@@ -7,24 +7,26 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 
-<body style="font-family: Arial, Helvetica, sans-serif; background-color: #f9f9f9; padding: 2em; display: flex; flex-direction: column; align-items: center; height: 100vh; width: 100vw; margin: 0; overflow: clip;">
-    <h1>{{ video.title }}</h1>
-    <div id="viewer-container" style="display: flex; margin-top: 2em; width: 640px; gap: 1.5em; flex-direction: row-reverse; height: 100%;">
-      <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1; max-width: 640px;">
-        <video controls
-          style="width: 640px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); height: 50%;">
-          <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
-        <div id="eeg-viewer"
-          style="background-color: #fff; padding: 1em; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);">
-          <h3 style="margin-top: 0; font-size: 1.2em; margin-bottom: 1em;">EEG Signal Viewer</h3>
-          <canvas id="eegChart" style="width: 100%;"></canvas>
-        </div>
+<body
+  style="font-family: Arial, Helvetica, sans-serif; background-color: #f9f9f9; padding: 2em; display: flex; flex-direction: column; align-items: center; height: 100vh; width: 100vw; margin: 0; overflow: clip;">
+  <h1>{{ video.title }}</h1>
+  <div id="viewer-container"
+    style="display: flex; margin-top: 2em; width: 640px; gap: 1.5em; flex-direction: row-reverse; height: 100%;">
+    <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1; max-width: 640px;">
+      <video controls id="videoPlayer"
+        style="width: 640px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); height: 50%;">
+        <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+      <div id="eeg-viewer"
+        style="background-color: #fff; padding: 1em; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);">
+        <h3 style="margin-top: 0; font-size: 1.2em; margin-bottom: 1em;">EEG Signal Viewer</h3>
+        <canvas id="eegChart" style="width: 100%;"></canvas>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1;">
       <div id="filters"
-        style="width: 180px; padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 100%;">
+        style="width: 180px; padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 550px;">
         <label for="participantFilter" style="font-weight: bold; font-size: 0.9em;">Participants:</label>
         <select id="participantFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;"
           multiple>
@@ -51,7 +53,8 @@
         </select>
 
         <label for="stimuliFilter" style="font-weight: bold; font-size: 0.9em;">Stimuli:</label>
-        <select id="stimuliFilter" multiple size="6" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;">
+        <select id="stimuliFilter" multiple size="6"
+          style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;">
           <!-- Options will be dynamically added via JS -->
         </select>
 
@@ -59,12 +62,12 @@
           style="padding: 0.5em; background-color: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 0.5em;">Apply
           Filters</button>
       </div>
-      </div>
     </div>
-    <input type="hidden" id="videoId" value="{{ video.id }}">
-    <script>
-      const initialData = {{ eeg_data | tojson }};
-      const stimuli = {
+  </div>
+  <input type="hidden" id="videoId" value="{{ video.id }}">
+  <script>
+    const initialData = {{ eeg_data | tojson }};
+    const stimuli = {
       0: { label: "Sound effect", color: "#e6194b" },
       1: { label: "Zoom", color: "#3cb44b" },
       2: { label: "Pointing", color: "#ffe119" },
@@ -78,10 +81,9 @@
       10: { label: "Pictograph", color: "#008080" },
       11: { label: "Size Change", color: "#e6beff" },
     };
-
-    
     const stimuliSelect = document.getElementById('stimuliFilter');
 
+    let currentVideoTime = 0;
     // Dynamically add options
     Object.entries(stimuli).forEach(([id, { label, color }]) => {
       const option = document.createElement('option');
@@ -91,9 +93,31 @@
       option.style.color = '#000';
       stimuliSelect.appendChild(option);
     });
-      const ctx = document.getElementById('eegChart').getContext('2d');
+    const ctx = document.getElementById('eegChart').getContext('2d');
 
-      const stimuliOverlayPlugin = {
+    const videoSyncLinePlugin = {
+      id: 'video-sync-line',
+      afterDraw(chart) {
+        if (!chart.options.plugins['video-sync-line']?.enabled) return;
+
+        const xScale = chart.scales['x'];
+        const ctx = chart.ctx;
+        const chartArea = chart.chartArea;
+
+        const x = xScale.getPixelForValue(currentVideoTime);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'red';
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+
+    const stimuliOverlayPlugin = {
       id: 'stimuli-overlay',
       beforeDraw(chart, args, options) {
         const ctx = chart.ctx;
@@ -107,68 +131,97 @@
         ctx.globalAlpha = 0.3;
 
         for (const s of options.stimuli) {
-      if (selectedStimuli && selectedStimuli.length > 0 && !selectedStimuli.includes(String(s.stimulus_id))) {
-        continue;
-      }
-
-      const color = stimuli[s.stimulus_id]?.color || "#cccccc";
-      const xStart = xScale.getPixelForValue(s.start_time);
-      const xEnd = xScale.getPixelForValue(s.end_time);
-      ctx.fillStyle = color;
-      ctx.fillRect(xStart, chartArea.top, xEnd - xStart, chartArea.bottom - chartArea.top);
-    }
-
-    ctx.restore();
-  }
-    };
-      // Step 1: Initialize chart with initial data
-      let chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: Array.from({ length: initialData.length }, (_, i) => i),
-          datasets: [{
-            label: 'EEG Signal',
-            data: initialData,
-            borderColor: 'blue',
-            borderWidth: 1,
-            pointRadius: 0,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { title: { display: true, text: 'Time (index)' } },
-            y: { title: { display: true, text: 'Amplitude' } }
-          },
-          plugins:{
-            'stimuli-overlay':{
-              stimuli: []
-            }
+          if (selectedStimuli && selectedStimuli.length > 0 && !selectedStimuli.includes(String(s.stimulus_id))) {
+            continue;
           }
+
+          const color = stimuli[s.stimulus_id]?.color || "#cccccc";
+          const xStart = xScale.getPixelForValue(s.start_time);
+          const xEnd = xScale.getPixelForValue(s.end_time);
+          ctx.fillStyle = color;
+          ctx.fillRect(xStart, chartArea.top, xEnd - xStart, chartArea.bottom - chartArea.top);
+        }
+
+        ctx.restore();
+      }
+    };
+
+    Chart.register(stimuliOverlayPlugin, videoSyncLinePlugin);
+    // Step 1: Initialize chart with initial data
+    let chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: initialData.length }, (_, i) => i),
+        datasets: [{
+          label: 'EEG Signal',
+          data: initialData,
+          borderColor: 'blue',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { title: { display: true, text: 'Time (index)' } },
+          y: { title: { display: true, text: 'Amplitude' } }
         },
-        plugins: [stimuliOverlayPlugin]
-      });
+        plugins: {
+          'stimuli-overlay': {
+            stimuli: []
+          },
+          'video-sync-line': {
+            enabled: true
+          }
+        }
+      },
+      plugins: [stimuliOverlayPlugin, videoSyncLinePlugin]
+    });
 
-      // Step 2: Update chart when user applies filters
-      document.getElementById('applyFilters').addEventListener('click', () => {
-        const region = document.getElementById('regionFilter').value;
-        const index = document.getElementById('indexFilter').value;
-        const videoId = document.getElementById('videoId').value;
+    const video = document.getElementById('videoPlayer');
+    function updateSyncLine() {
+    if (video.paused || video.ended) return;
+    currentVideoTime = Math.floor(video.currentTime * 2); // EEG index = video time * 2
+    chart.update('none'); // prevent animation
+  }
 
-        const participantSelect = document.getElementById('participantFilter');
-        const selectedOptions = Array.from(participantSelect.selectedOptions);
-        const participantParams = selectedOptions.map(opt => `participant=${opt.value}`).join('&');
-        const selectedStimuliOptions = Array.from(document.getElementById('stimuliFilter').selectedOptions);
-        const selectedStimuli = selectedStimuliOptions.map(opt => opt.value);
+  let syncInterval = null;
 
-        const query = `/api/eeg?video=${videoId}&region=${region}&index=${index}&${participantParams}`;
-        const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
+  video.addEventListener('play', () => {
+    syncInterval = setInterval(updateSyncLine, 100); // update every 100ms
+  });
 
-        Promise.all([
-          fetch(query).then(res => res.json()),
-          fetch(stimuliQuery).then(res => res.json())
-        ])
+  video.addEventListener('pause', () => {
+    clearInterval(syncInterval);
+    syncInterval = null;
+    updateSyncLine(); // ensure line stays on last frame
+  });
+
+  video.addEventListener('ended', () => {
+    clearInterval(syncInterval);
+    syncInterval = null;
+    updateSyncLine();
+  });
+    // Step 2: Update chart when user applies filters
+    document.getElementById('applyFilters').addEventListener('click', () => {
+      const region = document.getElementById('regionFilter').value;
+      const index = document.getElementById('indexFilter').value;
+      const videoId = document.getElementById('videoId').value;
+
+      const participantSelect = document.getElementById('participantFilter');
+      const selectedOptions = Array.from(participantSelect.selectedOptions);
+      const participantParams = selectedOptions.map(opt => `participant=${opt.value}`).join('&');
+      const selectedStimuliOptions = Array.from(document.getElementById('stimuliFilter').selectedOptions);
+      const selectedStimuli = selectedStimuliOptions.map(opt => opt.value);
+
+      const query = `/api/eeg?video=${videoId}&region=${region}&index=${index}&${participantParams}`;
+      const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
+
+      Promise.all([
+        fetch(query).then(res => res.json()),
+        fetch(stimuliQuery).then(res => res.json())
+      ])
         .then(([eegData, stimuliData]) => {
           chart.data.labels = Array.from({ length: eegData.length }, (_, i) => i);
           chart.data.datasets[0].data = eegData;
@@ -181,8 +234,8 @@
         .catch(err => {
           console.error("Failed to fetch EEG or stimuli data:", err);
         });
-      });
-    </script>
+    });
+  </script>
 </body>
 
 </html>

@@ -41,7 +41,7 @@ def player(request: Request, id: str):
     eeg_list = eeg_data.tolist()
     return templates.TemplateResponse("player.html", {"request": request, "video": video[0], "eeg_data": eeg_list})
 
-def smooth_signal(signal, window_len=5):
+def smooth_signal(signal, window_len=3):
     return np.convolve(signal, np.ones(window_len)/window_len, mode='same')
 
 def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "all", index: str = "engagement"):

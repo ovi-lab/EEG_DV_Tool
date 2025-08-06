@@ -67,25 +67,29 @@
   <input type="hidden" id="videoId" value="{{ video.id }}">
   <script>
     const initialData = {{ eeg_data | tojson }};
-    const stimuli = {
-      0: { label: "Sound effect", color: "#e6194b" },
-      1: { label: "Zoom", color: "#3cb44b" },
-      2: { label: "Pointing", color: "#ffe119" },
-      3: { label: "Highlighting", color: "#0082c8" },
-      4: { label: "Gradual Text", color: "#f58231" },
-      5: { label: "Gradual appearance", color: "#911eb4" },
-      6: { label: "Camera Angle", color: "#46f0f0" },
-      7: { label: "Animation", color: "#f032e6" },
-      8: { label: "Map", color: "#d2f53c" },
-      9: { label: "Area", color: "#fabebe" },
-      10: { label: "Pictograph", color: "#008080" },
-      11: { label: "Size Change", color: "#e6beff" },
-    };
+    const stimuli2 = {{ stimuli_info | tojson }};
+    const stimuliData = {{ stimuli_data | tojson }};
+    console.log(stimuli2);
     const stimuliSelect = document.getElementById('stimuliFilter');
 
+    const stimuli = {
+    0: {"label": "Sound effect", "color": "#e6194b"},
+    1: {"label": "Zoom", "color": "#3cb44b"},
+    2: {"label": "Pointing", "color": "#ffe119"},
+    3: {"label": "Highlighting", "color": "#0082c8"},
+    4: {"label": "Gradual Text", "color": "#f58231"},
+    5: {"label": "Gradual appearance", "color": "#911eb4"},
+    6: {"label": "Camera Angle", "color": "#46f0f0"},
+    7: {"label": "Animation", "color": "#f032e6"},
+    8: {"label": "Map", "color": "#d2f53c"},
+    9: {"label": "Area", "color": "#fabebe"},
+    10: {"label": "Pictograph", "color": "#008080"},
+    11: {"label": "Size Change", "color": "#e6beff"}
+  }
+
     let currentVideoTime = 0;
-    // Dynamically add options
-    Object.entries(stimuli).forEach(([id, { label, color }]) => {
+
+    Object.entries(stimuli2).forEach(([id, { label, color }]) => {
       const option = document.createElement('option');
       option.value = id;
       option.textContent = label;

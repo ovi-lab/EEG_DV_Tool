@@ -52,12 +52,19 @@ async def read_root(request: Request):
 @app.get("/player", response_class=HTMLResponse)
 def player(request: Request, id: str):
     df = pd.read_csv(VIDEO_CSV_PATH)
+    video_stimuli = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
     video = df[df["id"] == int(id)].to_dict(orient="records")
     if not video:
         return HTMLResponse("Video not found", status_code=404)
-    eeg_data = get_eeg_summary(video_id=video[0]["id"], participant_id=[105, 107, 2, 7], region="all", index="engagement")
+    eeg_data = get_eeg_summary(video_id=video[0]["id"], participant_id=[105, 107, 2, 7, 10, 14], region="all", index="engagement")
     eeg_list = eeg_data.tolist()
-    return templates.TemplateResponse("player.html", {"request": request, "video": video[0], "eeg_data": eeg_list})
+    stimuli_list = video_stimuli[video_stimuli["video_id"] == int(id)].to_dict(orient="records")
+    # give the items from stimuli that exist at least for one time in stimuli_list in cell stimulus_id
+    unique_stimuli_ids = set(item["stimulus_id"] for item in stimuli_list)
+    vide_stim_info = [stimuli[s] for s in unique_stimuli_ids]
+    print(vide_stim_info)
+    return templates.TemplateResponse("player.html", {"request": request, "video": video[0], "eeg_data": eeg_list, 
+                                                     "stimuli_data": stimuli_list, "stimuli_info": vide_stim_info})
 
 def smooth_signal(signal, window_len=3):
     return np.convolve(signal, np.ones(window_len)/window_len, mode='same')

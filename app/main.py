@@ -24,18 +24,18 @@ VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.cs
 participants = [105, 107, 2, 7, 10, 14]
 
 stimuli = {
-    0: {"label": "Sound effect", "color": "#e6194b"},
-    1: {"label": "Zoom", "color": "#3cb44b"},
-    2: {"label": "Pointing", "color": "#ffe119"},
-    3: {"label": "Highlighting", "color": "#0082c8"},
-    4: {"label": "Gradual Text", "color": "#f58231"},
-    5: {"label": "Gradual appearance", "color": "#911eb4"},
-    6: {"label": "Camera Angle", "color": "#46f0f0"},
-    7: {"label": "Animation", "color": "#f032e6"},
-    8: {"label": "Map", "color": "#d2f53c"},
-    9: {"label": "Area", "color": "#fabebe"},
-    10: {"label": "Pictograph", "color": "#008080"},
-    11: {"label": "Size Change", "color": "#e6beff"},
+    0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
+    1: {"id": 1, "label": "Zoom", "color": "#3cb44b"},
+    2: {"id": 2, "label": "Pointing", "color": "#ffe119"},
+    3: {"id": 3, "label": "Highlighting", "color": "#0082c8"},
+    4: {"id": 4, "label": "Gradual Text", "color": "#f58231"},
+    5: {"id": 5, "label": "Gradual appearance", "color": "#911eb4"},
+    6: {"id": 6, "label": "Camera Angle", "color": "#46f0f0"},
+    7: {"id": 7, "label": "Animation", "color": "#f032e6"},
+    8: {"id": 8, "label": "Map", "color": "#d2f53c"},
+    9: {"id": 9, "label": "Area", "color": "#fabebe"},
+    10: {"id": 10, "label": "Pictograph", "color": "#008080"},
+    11: {"id": 11, "label": "Size Change", "color": "#e6beff"},
 }
 
 # Helper functions
@@ -164,7 +164,8 @@ async def player(request: Request, id: str):
                                         "eng_data":  eng_list, 
                                         "atn_data": atn_list,
                                         "stimuli_data": stimuli_list, 
-                                        "stimuli_info": vide_stim_info})
+                                        "stimuli_info": vide_stim_info,
+                                        "participants": participants})
 
 @app.get("/api/stimuli")
 def get_video_stimuli(video_id: int):

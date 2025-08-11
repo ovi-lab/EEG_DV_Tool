@@ -15,33 +15,29 @@
         <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
         Your browser does not support the video tag.
       </video>
-      <div id="eeg-viewer"
-        style="background-color: #fff; padding: 1em; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);">
-        <h3 style="margin-top: 0; font-size: 1.2em; margin-bottom: 1em;">EEG Signal Viewer</h3>
-        <canvas id="eegChart" style="width: 100%;"></canvas>
+      <!-- label for the stimuli to be added -->
+      <div id="eeg-viewer">
+          <h3 style="margin-top: 0; font-size: 1.2em; margin-bottom: 1em;">EEG Signal Viewer</h3>
+          <canvas id="eegChart" style="width: 100%; height: 100%;"></canvas>
       </div>
     </div>
     <div id="viewer-left-child">
       <div id="filters"
         style=" padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 550px;">
-        <label for="participantFilter" style="font-weight: bold; font-size: 0.9em;">Participants:</label>
-        <select id="participantFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;"
-          multiple>
-          <option value="105">105</option>
-          <option value="107">107</option>
-          <option value="2">2</option>
-          <option value="7">7</option>
-          <option value="10">10</option>
-          <option value="14">14</option>
-        </select>
+
+        <div class="dropdown" id="participantDropdownWrapper">
+          <button class="dropdown-btn" id="participantDropdownBtn">All Participants
+                <span class="dropdown-icon">▼</span>
+          </button>
+          <div class="dropdown-content" id="participantDropdown"></div>
+        </div>
 
         <label for="regionFilter" style="font-weight: bold; font-size: 0.9em;">Region:</label>
-        <select id="regionFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;">
-          <option value="all">All</option>
-          <option value="frontal">Frontal</option>
-          <option value="frontocentral">Frontocentral</option>
-          <option value="parietal">Parietal</option>
-        </select>
+        <div id="regionFilter" class="region-grid">
+          <div class="region frontal active" data-value="frontal">Frontal</div>
+          <div class="region frontocentral active" data-value="frontocentral">Frontocentral</div>
+          <div class="region parietal active" data-value="parietal">Parietal</div>
+        </div>
 
         <label for="indexFilter" style="font-weight: bold; font-size: 0.9em;">Index:</label>
         <select id="indexFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;">
@@ -63,26 +59,58 @@
   </div>
   <input type="hidden" id="videoId" value="{{ video.id }}">
   <script>
-    const initialData = {{ eng_data | tojson }};
+    const engagementData = {{ eng_data | tojson }};
+    const attentionData = {{ atn_data | tojson }};
+
+    const participantsData = {{ participants | tojson }};
+
     const stimuli2 = {{ stimuli_info | tojson }};
     const stimuliData = {{ stimuli_data | tojson }};
-    console.log(stimuli2);
     const stimuliSelect = document.getElementById('stimuliFilter');
 
     const stimuli = {
-    0: {"label": "Sound effect", "color": "#e6194b"},
-    1: {"label": "Zoom", "color": "#3cb44b"},
-    2: {"label": "Pointing", "color": "#ffe119"},
-    3: {"label": "Highlighting", "color": "#0082c8"},
-    4: {"label": "Gradual Text", "color": "#f58231"},
-    5: {"label": "Gradual appearance", "color": "#911eb4"},
-    6: {"label": "Camera Angle", "color": "#46f0f0"},
-    7: {"label": "Animation", "color": "#f032e6"},
-    8: {"label": "Map", "color": "#d2f53c"},
-    9: {"label": "Area", "color": "#fabebe"},
-    10: {"label": "Pictograph", "color": "#008080"},
-    11: {"label": "Size Change", "color": "#e6beff"}
-  }
+    0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
+    1: {"id": 1, "label": "Zoom", "color": "#3cb44b"},
+    2: {"id": 2, "label": "Pointing", "color": "#ffe119"},
+    3: {"id": 3, "label": "Highlighting", "color": "#0082c8"},
+    4: {"id": 4, "label": "Gradual Text", "color": "#f58231"},
+    5: {"id": 5, "label": "Gradual appearance", "color": "#911eb4"},
+    6: {"id": 6, "label": "Camera Angle", "color": "#46f0f0"},
+    7: {"id": 7, "label": "Animation", "color": "#f032e6"},
+    8: {"id": 8, "label": "Map", "color": "#d2f53c"},
+    9: {"id": 9, "label": "Area", "color": "#fabebe"},
+    10: {"id": 10, "label": "Pictograph", "color": "#008080"},
+    11: {"id": 11, "label": "Size Change", "color": "#e6beff"},
+    }
+
+    const dropdown = document.getElementById('participantDropdown');
+    const ctx = document.getElementById('eegChart').getContext('2d');
+
+    dropdown.innerHTML = `
+      <label>
+        <input type="radio" name="participant" value="all" checked>
+        All
+      </label>
+    `;
+
+    participantsData.forEach(p => {
+      dropdown.innerHTML += `
+        <label>
+          <input type="radio" name="participant" value="${p}">
+          ${p}
+        </label>
+      `;
+    });
+
+    document.getElementById('participantDropdownBtn').addEventListener('click', () => {
+      document.querySelector('.dropdown').classList.toggle('show');
+    });
+
+    dropdown.addEventListener('change', e => {
+      const selected = e.target.value;
+      document.getElementById('participantDropdownBtn').textContent =
+        selected === "all" ? "All Participants" : `Participant ${selected}`;
+    });
 
     let currentVideoTime = 0;
 
@@ -94,7 +122,6 @@
       option.style.color = '#000';
       stimuliSelect.appendChild(option);
     });
-    const ctx = document.getElementById('eegChart').getContext('2d');
 
     const videoSyncLinePlugin = {
       id: 'video-sync-line',
@@ -152,11 +179,18 @@
     let chart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: Array.from({ length: initialData.length }, (_, i) => i),
+        labels: Array.from({ length: engagementData.length }, (_, i) => i),
         datasets: [{
-          label: 'EEG Signal',
-          data: initialData,
+          label: 'Engagement',
+          data: engagementData,
           borderColor: 'blue',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3
+        }, {
+          label: 'Attention',
+          data: attentionData,
+          borderColor: 'red',
           borderWidth: 1,
           pointRadius: 0,
           tension: 0.3
@@ -180,39 +214,57 @@
       plugins: [stimuliOverlayPlugin, videoSyncLinePlugin]
     });
 
-    const video = document.getElementById('videoPlayer');
+    const video = document.getElementById("video-player");
     function updateSyncLine() {
-    if (video.paused || video.ended) return;
-    currentVideoTime = Math.floor(video.currentTime * 2); // EEG index = video time * 2
-    chart.update('none'); // prevent animation
-  }
+      if (video.paused || video.ended) return;
+      currentVideoTime = Math.floor(video.currentTime * 2); // EEG index = video time * 2
+      chart.update('none'); // prevent animation
+    }
 
-  let syncInterval = null;
+    let syncInterval = null;
 
-  video.addEventListener('play', () => {
-    syncInterval = setInterval(updateSyncLine, 100); // update every 100ms
+    video.addEventListener('play', () => {
+        video.addEventListener('play', () => {
+        syncInterval = setInterval(updateSyncLine, 100);
   });
+    });
 
-  video.addEventListener('pause', () => {
-    clearInterval(syncInterval);
-    syncInterval = null;
-    updateSyncLine(); // ensure line stays on last frame
-  });
+    video.addEventListener('pause', () => {
+      clearInterval(syncInterval);
+      syncInterval = null;
+      updateSyncLine(); // ensure line stays on last frame
+    });
 
-  video.addEventListener('ended', () => {
-    clearInterval(syncInterval);
-    syncInterval = null;
-    updateSyncLine();
+    video.addEventListener('ended', () => {
+      clearInterval(syncInterval);
+      syncInterval = null;
+      updateSyncLine();
+    });
+
+    document.querySelectorAll('#regionFilter .region').forEach(region => {
+    region.addEventListener('click', () => {
+    // Toggle active/inactive state
+    region.classList.toggle('active');
+    region.classList.toggle('inactive');
+
+    // Collect selected values
+    const selectedRegions = Array.from(document.querySelectorAll('#regionFilter .region.active'))
+                                 .map(el => el.dataset.value);
+
+    console.log("Selected regions:", selectedRegions);
+
   });
+})
+
     // Step 2: Update chart when user applies filters
     document.getElementById('applyFilters').addEventListener('click', () => {
       const region = document.getElementById('regionFilter').value;
       const index = document.getElementById('indexFilter').value;
       const videoId = document.getElementById('videoId').value;
 
-      const participantSelect = document.getElementById('participantFilter');
-      const selectedOptions = Array.from(participantSelect.selectedOptions);
-      const participantParams = selectedOptions.map(opt => `participant=${opt.value}`).join('&');
+      const participantSelect = document.getElementById('participantDropdownBtn');
+      console.log(participantSelect)
+      const participantParams = participantSelect.value === "all" ? "" : `participant=${participantSelect.value}`;
       const selectedStimuliOptions = Array.from(document.getElementById('stimuliFilter').selectedOptions);
       const selectedStimuli = selectedStimuliOptions.map(opt => opt.value);
 

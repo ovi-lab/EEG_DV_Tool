@@ -4,17 +4,14 @@
 <head>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <title>{{ video.title }}</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/player.css">
 </head>
 
-<body
-  style="font-family: Arial, Helvetica, sans-serif; background-color: #f9f9f9; padding: 2em; display: flex; flex-direction: column; align-items: center; height: 100vh; width: 100vw; margin: 0; overflow: clip;">
+<body>
   <h1>{{ video.title }}</h1>
-  <div id="viewer-container"
-    style="display: flex; margin-top: 2em; width: 640px; gap: 1.5em; flex-direction: row-reverse; height: 100%;">
-    <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1; max-width: 640px;">
-      <video controls id="videoPlayer"
-        style="width: 640px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); height: 50%;">
+  <div id="viewer-container">
+    <div id="viewer-right-child">
+      <video controls id="video-player">
         <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
         Your browser does not support the video tag.
       </video>
@@ -24,9 +21,9 @@
         <canvas id="eegChart" style="width: 100%;"></canvas>
       </div>
     </div>
-    <div style="display: flex; flex-direction: column; gap: 1em; flex-grow: 1;">
+    <div id="viewer-left-child">
       <div id="filters"
-        style="width: 180px; padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 550px;">
+        style=" padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 550px;">
         <label for="participantFilter" style="font-weight: bold; font-size: 0.9em;">Participants:</label>
         <select id="participantFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;"
           multiple>
@@ -66,7 +63,7 @@
   </div>
   <input type="hidden" id="videoId" value="{{ video.id }}">
   <script>
-    const initialData = {{ eeg_data | tojson }};
+    const initialData = {{ eng_data | tojson }};
     const stimuli2 = {{ stimuli_info | tojson }};
     const stimuliData = {{ stimuli_data | tojson }};
     console.log(stimuli2);

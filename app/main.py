@@ -20,6 +20,9 @@ VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
+# we should extract this from the database or a config file - need to be revised later
+participants = [105, 107, 2, 7, 10, 14]
+
 stimuli = {
     0: {"label": "Sound effect", "color": "#e6194b"},
     1: {"label": "Zoom", "color": "#3cb44b"},
@@ -35,37 +38,7 @@ stimuli = {
     11: {"label": "Size Change", "color": "#e6beff"},
 }
 
-
-
-def home():
-    if os.path.exists(VIDEO_CSV_PATH):
-        df = pd.read_csv(VIDEO_CSV_PATH)
-        return df.to_dict(orient='records')
-    else:
-        return []
-
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    videos = home()
-    return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
-
-@app.get("/player", response_class=HTMLResponse)
-def player(request: Request, id: str):
-    df = pd.read_csv(VIDEO_CSV_PATH)
-    video_stimuli = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
-    video = df[df["id"] == int(id)].to_dict(orient="records")
-    if not video:
-        return HTMLResponse("Video not found", status_code=404)
-    eeg_data = get_eeg_summary(video_id=video[0]["id"], participant_id=[105, 107, 2, 7, 10, 14], region="all", index="engagement")
-    eeg_list = eeg_data.tolist()
-    stimuli_list = video_stimuli[video_stimuli["video_id"] == int(id)].to_dict(orient="records")
-    # give the items from stimuli that exist at least for one time in stimuli_list in cell stimulus_id
-    unique_stimuli_ids = set(item["stimulus_id"] for item in stimuli_list)
-    vide_stim_info = [stimuli[s] for s in unique_stimuli_ids]
-    print(vide_stim_info)
-    return templates.TemplateResponse("player.html", {"request": request, "video": video[0], "eeg_data": eeg_list, 
-                                                     "stimuli_data": stimuli_list, "stimuli_info": vide_stim_info})
-
+# Helper functions
 def smooth_signal(signal, window_len=3):
     return np.convolve(signal, np.ones(window_len)/window_len, mode='same')
 
@@ -144,6 +117,55 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     # Final average across participants
     return np.mean(trimmed, axis=0)
 
+# FastAPI routes
+# Index page - shows all videos
+def home():
+    if os.path.exists(VIDEO_CSV_PATH):
+        df = pd.read_csv(VIDEO_CSV_PATH)
+        return df.to_dict(orient='records')
+    else:
+        return []
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    videos = home()
+    return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
+
+
+def get_video_by_video_id(video_id: str):
+    df = pd.read_csv(VIDEO_CSV_PATH)
+    video = df[df["id"] == int(video_id)].to_dict(orient="records")
+    if not video:
+        return HTMLResponse("Video not found", status_code=404)
+    return video[0]
+
+def get_stimuli_by_video_id(video_id: str):
+    video_stimuli = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
+    stimuli_list = video_stimuli[video_stimuli["video_id"] == int(video_id)].to_dict(orient="records")
+    unique_stimuli_ids = set(item["stimulus_id"] for item in stimuli_list)
+    vide_stim_info = [stimuli[s] for s in unique_stimuli_ids]
+    return stimuli_list, vide_stim_info
+
+def get_eeg_data_by_video_id(video_id: str):
+    engagement_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="engagement")
+    engagement_list = engagement_data.tolist()
+    attention_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="attention")
+    attention_list = attention_data.tolist()
+    return engagement_list, attention_list
+
+@app.get("/player", response_class=HTMLResponse)
+async def player(request: Request, id: str):
+    video = get_video_by_video_id(id)
+    stimuli_list, vide_stim_info = get_stimuli_by_video_id(id)
+    eng_list, atn_list = get_eeg_data_by_video_id(id)
+    return templates.TemplateResponse("player.html", 
+                                        {"request": request, 
+                                        "video": video, 
+                                        "eng_data":  eng_list, 
+                                        "atn_data": atn_list,
+                                        "stimuli_data": stimuli_list, 
+                                        "stimuli_info": vide_stim_info})
+
 @app.get("/api/stimuli")
 def get_video_stimuli(video_id: int):
     if os.path.exists(VIDEO_STIMULI_CSV_PATH):
@@ -164,9 +186,8 @@ def get_filtered_eeg_api(
     index: str = "engagement"
 ):
     try:
-        print(participant)
         if participant is None:
-            participant = [105, 107, 2, 7, 10, 14]
+            participant = participants
         result = get_eeg_summary(video, participant, region, index)
         return JSONResponse(content=result.tolist())
     except ValueError as e:

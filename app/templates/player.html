@@ -22,8 +22,7 @@
       </div>
     </div>
     <div id="viewer-left-child">
-      <div id="filters"
-        style=" padding: 1em; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; gap: 1em; flex-grow:1; max-height: 550px;">
+      <div id="filters">
 
         <div class="dropdown" id="participantDropdownWrapper">
           <button class="dropdown-btn" id="participantDropdownBtn">All Participants
@@ -32,18 +31,12 @@
           <div class="dropdown-content" id="participantDropdown"></div>
         </div>
 
-        <label for="regionFilter" style="font-weight: bold; font-size: 0.9em;">Region:</label>
+        <label for="regionFilter" style="font-weight: bold; font-size: 0.8em;">Region:</label>
         <div id="regionFilter" class="region-grid">
           <div class="region frontal active" data-value="frontal">Frontal</div>
           <div class="region frontocentral active" data-value="frontocentral">Frontocentral</div>
           <div class="region parietal active" data-value="parietal">Parietal</div>
         </div>
-
-        <label for="indexFilter" style="font-weight: bold; font-size: 0.9em;">Index:</label>
-        <select id="indexFilter" style="width: 100%; padding: 0.3em; border-radius: 4px; border: 1px solid #ccc;">
-          <option value="engagement">Engagement</option>
-          <option value="attention">Attention</option>
-        </select>
 
         <label for="stimuliFilter" style="font-weight: bold; font-size: 0.9em;">Stimuli:</label>
         <select id="stimuliFilter" multiple size="6"
@@ -61,12 +54,9 @@
   <script>
     const engagementData = {{ eng_data | tojson }};
     const attentionData = {{ atn_data | tojson }};
-
     const participantsData = {{ participants | tojson }};
-
     const stimuli2 = {{ stimuli_info | tojson }};
     const stimuliData = {{ stimuli_data | tojson }};
-    const stimuliSelect = document.getElementById('stimuliFilter');
 
     const stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -85,7 +75,13 @@
 
     const dropdown = document.getElementById('participantDropdown');
     const ctx = document.getElementById('eegChart').getContext('2d');
+    const stimuliSelect = document.getElementById('stimuliFilter');
 
+    let currentVideoTime = 0;
+    let currentParticipant = participantsData;
+    let currentRegion = "all";
+
+    //Participants
     dropdown.innerHTML = `
       <label>
         <input type="radio" name="participant" value="all" checked>
@@ -108,11 +104,32 @@
 
     dropdown.addEventListener('change', e => {
       const selected = e.target.value;
+      if (selected === "all") {
+        currentParticipant = null;
+      } else {
+        currentParticipant = [parseInt(selected)];
+      }
       document.getElementById('participantDropdownBtn').textContent =
         selected === "all" ? "All Participants" : `Participant ${selected}`;
     });
 
-    let currentVideoTime = 0;
+    //Regions
+    document.querySelectorAll('#regionFilter .region').forEach(region => {
+        region.addEventListener('click', () => {
+        region.classList.toggle('active');
+        region.classList.toggle('inactive');
+
+        const selectedRegions = Array.from(document.querySelectorAll('#regionFilter .region.active'))
+                                    .map(el => el.dataset.value);
+
+        if (selectedRegions.length === 0) {
+          document.querySelectorAll('#regionFilter .region').forEach(el => el.classList.add('active'));
+          currentRegion = "all";
+        } else {
+          currentRegion = selectedRegions.join(',');
+        }
+      });
+    })
 
     Object.entries(stimuli2).forEach(([id, { label, color }]) => {
       const option = document.createElement('option');
@@ -241,34 +258,21 @@
       updateSyncLine();
     });
 
-    document.querySelectorAll('#regionFilter .region').forEach(region => {
-    region.addEventListener('click', () => {
-    // Toggle active/inactive state
-    region.classList.toggle('active');
-    region.classList.toggle('inactive');
-
-    // Collect selected values
-    const selectedRegions = Array.from(document.querySelectorAll('#regionFilter .region.active'))
-                                 .map(el => el.dataset.value);
-
-    console.log("Selected regions:", selectedRegions);
-
-  });
-})
-
-    // Step 2: Update chart when user applies filters
     document.getElementById('applyFilters').addEventListener('click', () => {
-      const region = document.getElementById('regionFilter').value;
-      const index = document.getElementById('indexFilter').value;
+      // const region = document.getElementById('regionFilter').value; currentRegion is already set by the region filter
+      const region = "all";
       const videoId = document.getElementById('videoId').value;
 
-      const participantSelect = document.getElementById('participantDropdownBtn');
-      console.log(participantSelect)
-      const participantParams = participantSelect.value === "all" ? "" : `participant=${participantSelect.value}`;
+
+      const participantParams = currentParticipant;
       const selectedStimuliOptions = Array.from(document.getElementById('stimuliFilter').selectedOptions);
       const selectedStimuli = selectedStimuliOptions.map(opt => opt.value);
 
-      const query = `/api/eeg?video=${videoId}&region=${region}&index=${index}&${participantParams}`;
+      let query = `/api/eeg?video=${videoId}&region=${region}`;
+      if (participantParams) {
+        query += `&participant=${participantParams.join(',')}`;
+      }
+
       const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
       Promise.all([
@@ -276,8 +280,11 @@
         fetch(stimuliQuery).then(res => res.json())
       ])
         .then(([eegData, stimuliData]) => {
-          chart.data.labels = Array.from({ length: eegData.length }, (_, i) => i);
-          chart.data.datasets[0].data = eegData;
+          console.log("EEG Data:", eegData.engagement);
+          chart.data.labels = Array.from({ length: eegData.engagement.length }, (_, i) => i);
+          chart.data.datasets[0].data = eegData.engagement;
+          chart.data.datasets[1].data = eegData.attention;
+      
 
           // Set new stimuli
           chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;

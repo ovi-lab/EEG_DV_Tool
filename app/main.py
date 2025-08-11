@@ -183,14 +183,17 @@ def get_video_stimuli(video_id: int):
 def get_filtered_eeg_api(
     video: int,
     participant: list[int] = Query(None),
-    region: str = "all",
-    index: str = "engagement"
+    region: str = "all"
 ):
     try:
         if participant is None:
             participant = participants
-        result = get_eeg_summary(video, participant, region, index)
-        return JSONResponse(content=result.tolist())
+        result_engagement = get_eeg_summary(video, participant, region, index="engagement")
+        result_attention = get_eeg_summary(video, participant, region, index="attention")
+        return JSONResponse(content={
+            "engagement": result_engagement.tolist(),
+            "attention": result_attention.tolist()
+        })
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
     

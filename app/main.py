@@ -55,9 +55,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """ 
     # @app.get("/eeg-summary/{video_id}")
     # Load EEG CSV
-    print("Loading EEG Data...")
     df = pd.read_csv(EEG_CSV_PATH)
-    print("EEG Data Loaded")
 
     # Convert string lists in PSD columns back to Python lists
     for col in ['theta_psd', 'alpha_psd', 'beta_psd']:
@@ -72,8 +70,8 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     else:
         df = df[df['participant'].isin(participant_id)]
 
-    # Filter by brain region unless "all" regions are requested
-    if region.lower() != "all":
+
+    if region != "all":
         df = df[df['region'].str.lower() == region.lower()]
 
     # Error if no data remains after filtering
@@ -183,17 +181,33 @@ def get_video_stimuli(video_id: int):
 def get_filtered_eeg_api(
     video: int,
     participant: list[int] = Query(None),
-    region: str = "all"
+    region: list[str] = Query(None)
 ):
     try:
         if participant is None:
             participant = participants
-        result_engagement = get_eeg_summary(video, participant, region, index="engagement")
-        result_attention = get_eeg_summary(video, participant, region, index="attention")
-        return JSONResponse(content={
-            "engagement": result_engagement.tolist(),
-            "attention": result_attention.tolist()
-        })
+
+        results = {}
+
+        engagement_all = get_eeg_summary(video, participant, "all", index="engagement")
+        attention_all = get_eeg_summary(video, participant, "all", index="attention")
+        results["all"] = {
+            "engagement": engagement_all.tolist(),
+            "attention": attention_all.tolist()
+        }
+
+        if region:
+            for r in region:
+                engagement = get_eeg_summary(video, participant, r, index="engagement")
+                attention = get_eeg_summary(video, participant, r, index="attention")
+                results[r] = {
+                    "engagement": engagement.tolist(),
+                    "attention": attention.tolist()
+                }
+
+        return JSONResponse(content=results)
+
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
+
     

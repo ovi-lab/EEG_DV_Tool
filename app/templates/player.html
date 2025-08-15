@@ -86,7 +86,7 @@
 
     let currentVideoTime = 0;
     let currentParticipant = null;
-    let currentRegion = null;
+    let currentRegion = [];
 
     //Participants
     dropdown.innerHTML = `
@@ -114,7 +114,7 @@
       if (selected === "all") {
         currentParticipant = null;
       } else {
-        currentParticipant = [parseInt(selected)];
+        currentParticipant = parseInt(selected);
       }
       document.getElementById('participantDropdownBtn').textContent =
         selected === "all" ? "All Participants" : `Participant ${selected}`;
@@ -255,26 +255,6 @@
     });
 
     function updateChartWithRegions(selectedRegions, regionData) {
-  // Reset to original two datasets
-  chart.data.datasets = [
-    {
-      label: 'Engagement (All)',
-      data: engagementData,
-      borderColor: 'brown',
-      borderWidth: 1,
-      pointRadius: 0,
-      tension: 0.3
-    },
-    {
-      label: 'Attention (All)',
-      data: attentionData,
-      borderColor: 'black',
-      borderWidth: 1,
-      pointRadius: 0,
-      tension: 0.3
-    }
-  ];
-
   // Colors for regions
   const colors = {
     frontal: ['red', 'darkred'],
@@ -345,7 +325,7 @@
       const queryParams = new URLSearchParams();
       queryParams.append('video', videoId);
       if (participantParams) {
-        participantParams.forEach(p => queryParams.append('participant', p));
+        queryParams.append('participant', participantParams);
       }
       if (regionParams) {
         regionParams.forEach(r => queryParams.append('region', r));
@@ -363,7 +343,7 @@
           chart.data.labels = Array.from({ length: eegData["all"].engagement.length }, (_, i) => i);
           chart.data.datasets[0].data = eegData["all"].engagement;
           chart.data.datasets[1].data = eegData["all"].attention;
-          updateChartWithRegions(currentRegion, eegData);
+          updateChartWithRegions(currentRegion, regionParams);
 
 
           // Set new stimuli

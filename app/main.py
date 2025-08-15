@@ -21,7 +21,7 @@ EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 10, 14]
+participants = [105, 107, 2, 7, 10, 14, 15, 16, 17,18,19,20]
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -180,9 +180,10 @@ def get_video_stimuli(video_id: int):
 @app.get("/api/eeg")
 def get_filtered_eeg_api(
     video: int,
-    participant: list[int] = Query(None),
+    participant: int = Query(None),
     region: list[str] = Query(None)
 ):
+    print("------------------------------------------------", participant)
     try:
         if participant is None:
             participant = participants

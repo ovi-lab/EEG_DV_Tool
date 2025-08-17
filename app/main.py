@@ -21,7 +21,7 @@ EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 10, 14, 15, 16, 17,18,19,20]
+participants = [105, 107, 2, 7, 10, 14, 15, 16, 17,18,19,20,21]
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},

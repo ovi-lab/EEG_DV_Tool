@@ -183,7 +183,6 @@ def get_filtered_eeg_api(
     participant: int = Query(None),
     region: list[str] = Query(None)
 ):
-    print("------------------------------------------------", participant)
     try:
         if participant is None:
             participant = participants

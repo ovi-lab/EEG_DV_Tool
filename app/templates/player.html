@@ -343,7 +343,7 @@
           chart.data.labels = Array.from({ length: eegData["all"].engagement.length }, (_, i) => i);
           chart.data.datasets[0].data = eegData["all"].engagement;
           chart.data.datasets[1].data = eegData["all"].attention;
-          updateChartWithRegions(currentRegion, regionParams);
+          updateChartWithRegions(currentRegion, eegData);
 
 
           // Set new stimuli

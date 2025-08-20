@@ -21,7 +21,7 @@ EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 10, 14, 15, 16, 17,18,19,20,21]
+participants = [105, 107, 2, 7, 10, 14, 15, 16, 17,18,19,20,21,22,23]
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -46,9 +46,9 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """
     This function calculates the average index using the data in eeg.csv based on the video_id, participant_id, desired index, and region.
    
-    video_id: One of the videos: 0, 1, 2, 3. //Ghazaleh: I just changed this to int because in other files it is int.
-    participant_id: Currently: 105, 107, 2, 7, 10, 14. Accepts a list of IDs or just one integer.
-    region: Brain regions: all, frontal, frontocentral, parietal.
+    video_id: One of the videos: 0, 1, 2, 3 (these are mDVs v3-v6). //Ghazaleh: I just changed this to int because in other files it is int.
+    participant_id: Accepts a list of IDs or just one integer. The list is in variable <participants> above which should be updated with new data
+    region: Brain regions: all, frontal, frontocentral, parietal, other. "all" means the 4 regions combined
     index: engagement, attention.
 
     Returns: The average index values across the region over the participants

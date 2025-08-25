@@ -183,8 +183,11 @@ def get_filtered_eeg_api(
     video: int,
     participant: list[int] = Query(None),
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     region: str = "all"
 =======
+=======
+>>>>>>> Stashed changes
     region: list[str] = Query(None)
 >>>>>>> Stashed changes
 ):

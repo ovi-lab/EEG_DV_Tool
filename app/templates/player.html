@@ -115,7 +115,13 @@
         return;
       } else {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         currentParticipant = [parseInt(selected)];
+=======
+        currentParticipant = Array.from(
+          document.querySelectorAll('#participantDropdown input[type="checkbox"]:checked')
+        ).map(el => parseInt(el.value));
+>>>>>>> Stashed changes
 =======
         currentParticipant = Array.from(
           document.querySelectorAll('#participantDropdown input[type="checkbox"]:checked')
@@ -331,6 +337,7 @@
         document.querySelectorAll('#stimuliCheckboxes input[type="checkbox"]:checked')
       ).map(cb => cb.value);
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
       let query = `/api/eeg?video=${videoId}&region=${region}`;
       if (participantParams) {
@@ -338,6 +345,8 @@
       }
 
 =======
+=======
+>>>>>>> Stashed changes
       
       const queryParams = new URLSearchParams();
       queryParams.append('video', videoId);
@@ -349,6 +358,9 @@
         regionParams.forEach(r => queryParams.append('region', r));
       }
       let query = `/api/eeg?${queryParams.toString()}`;
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
       const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
@@ -371,6 +383,9 @@
           chart.data.datasets[1].data = eegData["all"].attention;
           updateChartWithRegions(currentRegion, eegData);
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
           chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
           chart.options.plugins['stimuli-overlay'].selectedStimuli = selectedStimuli;

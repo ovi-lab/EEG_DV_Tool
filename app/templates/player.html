@@ -240,7 +240,7 @@
         responsive: true,
         scales: {
           x: { title: { display: true, text: 'Time (index)' } },
-          y: { title: { display: true, text: 'Amplitude' } }
+          y: { title: { display: true, text: 'Amplitude' }, min: 0, max: 3} // Within y: {}, add min: 0, max: 3 args to set the scale of the y-axis
         },
         plugins: {
           'stimuli-overlay': {

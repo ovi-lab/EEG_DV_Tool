@@ -22,7 +22,6 @@
     </div>
     <div id="viewer-left-child">
       <div id="filters">
-
         <div class="dropdown" id="participantDropdownWrapper">
           <button class="dropdown-btn" id="participantDropdownBtn">All Participants
                 <span class="dropdown-icon">▼</span>
@@ -82,7 +81,7 @@
     //Participants
     dropdown.innerHTML = `
       <label>
-        <input type="radio" name="participant" value="all" checked>
+        <input type="checkbox" name="participant" value="all">
         All
       </label>
     `;
@@ -90,7 +89,7 @@
     participantsData.forEach(p => {
       dropdown.innerHTML += `
         <label>
-          <input type="radio" name="participant" value="${p}">
+          <input type="checkbox" name="participant" value="${p}">
           ${p}
         </label>
       `;
@@ -101,14 +100,28 @@
     });
 
     dropdown.addEventListener('change', e => {
-      const selected = e.target.value;
-      if (selected === "all") {
-        currentParticipant = null;
+      if (e.target.value === 'all'){
+        if (e.target.checked) {
+          document.querySelectorAll('#participantDropdown input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+          });
+          currentParticipant = null;
+        } else {
+          document.querySelectorAll('#participantDropdown input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+          });
+          currentParticipant = null;
+        }
+        return;
       } else {
+<<<<<<< Updated upstream
         currentParticipant = [parseInt(selected)];
+=======
+        currentParticipant = Array.from(
+          document.querySelectorAll('#participantDropdown input[type="checkbox"]:checked')
+        ).map(el => parseInt(el.value));
+>>>>>>> Stashed changes
       }
-      document.getElementById('participantDropdownBtn').textContent =
-        selected === "all" ? "All Participants" : `Participant ${selected}`;
     });
 
     //Regions
@@ -247,6 +260,43 @@
       plugins: [stimuliOverlayPlugin, videoSyncLinePlugin]
     });
 
+<<<<<<< Updated upstream
+=======
+    function updateChartWithRegions(selectedRegions, regionData) {
+    // Colors for regions
+    const colors = {
+      frontal: ['red', 'darkred'],
+      frontocentral: ['green', 'darkgreen'],
+      parietal: ['blue', 'darkblue']
+    };
+
+    // Append region datasets
+    selectedRegions.forEach(region => {
+      if (regionData[region]) {
+        chart.data.datasets.push({
+          label: `Engagement (${region})`,
+          data: regionData[region].engagement,
+          borderColor: colors[region][0],
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3
+        });
+        chart.data.datasets.push({
+          label: `Attention (${region})`,
+          data: regionData[region].attention,
+          borderColor: colors[region][1],
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3
+        });
+      }
+    });
+
+    chart.update();
+  }
+
+
+>>>>>>> Stashed changes
     function updateSyncLine() {
       if (video.paused || video.ended) return;
       currentVideoTime = Math.floor(video.currentTime * 2); // EEG index = video time * 2
@@ -280,12 +330,26 @@
       const selectedStimuli = Array.from(
         document.querySelectorAll('#stimuliCheckboxes input[type="checkbox"]:checked')
       ).map(cb => cb.value);
+<<<<<<< Updated upstream
 
       let query = `/api/eeg?video=${videoId}&region=${region}`;
       if (participantParams) {
         query += `&participant=${participantParams.join(',')}`;
       }
 
+=======
+      
+      const queryParams = new URLSearchParams();
+      queryParams.append('video', videoId);
+      console.log(participantParams);
+      if (participantParams) {
+        participantParams.forEach(p => queryParams.append('participant', p));
+      }
+      if (regionParams) {
+        regionParams.forEach(r => queryParams.append('region', r));
+      }
+      let query = `/api/eeg?${queryParams.toString()}`;
+>>>>>>> Stashed changes
       const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
       Promise.all([
@@ -293,6 +357,7 @@
         fetch(stimuliQuery).then(res => res.json())
       ])
         .then(([eegData, stimuliData]) => {
+<<<<<<< Updated upstream
           console.log("EEG Data:", eegData.engagement);
           chart.data.labels = Array.from({ length: eegData.engagement.length }, (_, i) => i);
           chart.data.datasets[0].data = eegData.engagement;
@@ -300,6 +365,13 @@
       
 
           // Set new stimuli
+=======
+          chart.data.labels = Array.from({ length: eegData["all"].engagement.length }, (_, i) => i);
+          chart.data.datasets[0].data = eegData["all"].engagement;
+          chart.data.datasets[1].data = eegData["all"].attention;
+          updateChartWithRegions(currentRegion, eegData);
+
+>>>>>>> Stashed changes
           chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
           chart.options.plugins['stimuli-overlay'].selectedStimuli = selectedStimuli;
           chart.update();

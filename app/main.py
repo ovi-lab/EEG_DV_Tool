@@ -131,7 +131,6 @@ async def read_root(request: Request):
     videos = home()
     return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
 
-
 def get_video_by_video_id(video_id: str):
     df = pd.read_csv(VIDEO_CSV_PATH)
     video = df[df["id"] == int(video_id)].to_dict(orient="records")
@@ -183,17 +182,53 @@ def get_video_stimuli(video_id: int):
 def get_filtered_eeg_api(
     video: int,
     participant: list[int] = Query(None),
+<<<<<<< Updated upstream
     region: str = "all"
+=======
+    region: list[str] = Query(None)
+>>>>>>> Stashed changes
 ):
     try:
         if participant is None:
             participant = participants
+<<<<<<< Updated upstream
         result_engagement = get_eeg_summary(video, participant, region, index="engagement")
         result_attention = get_eeg_summary(video, participant, region, index="attention")
         return JSONResponse(content={
             "engagement": result_engagement.tolist(),
             "attention": result_attention.tolist()
         })
+=======
+
+        results = {}
+
+        for p in participant:
+            if region:
+                for r in region:
+                    engagement = get_eeg_summary(video, p, r, index="engagement", normalize='minmax')
+                    attention = get_eeg_summary(video, p, r, index="attention", normalize='minmax')
+                    results[f"participant_{p}_{r}"] = {
+                        "engagement": engagement.tolist(),
+                        "attention": attention.tolist()
+                    }
+            else:
+                engagement = get_eeg_summary(video, p, "all", index="engagement", normalize='minmax')
+                attention = get_eeg_summary(video, p, "all", index="attention", normalize='minmax')
+                results[f"participant_{p}_all"] = {
+                    "engagement": engagement.tolist(),
+                    "attention": attention.tolist()
+                }
+
+
+        engagement_all = get_eeg_summary(video, participant, "all", index="engagement", normalize='minmax')
+        attention_all = get_eeg_summary(video, participant, "all", index="attention", normalize='minmax')
+        results["all"] = {
+            "engagement": engagement_all.tolist(),
+            "attention": attention_all.tolist()
+        }
+        return JSONResponse(content=results)
+
+>>>>>>> Stashed changes
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
     

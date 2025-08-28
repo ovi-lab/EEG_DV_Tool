@@ -18,10 +18,11 @@ templates = Jinja2Templates(directory="app/templates")
 
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
+# EEG_BASELINE_SUBTRACTED_CSV_PATH = os.path.join("app", "static", "data", "eeg_baseline_subtracted.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 10, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26]
+participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27]
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -44,24 +45,35 @@ def smooth_signal(signal, window_len=3):
 
 # Reads indices, Normalizes using min max OR zscore to make sure all indices are in the same range before across PPs
 def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "all",
-                    index: str = "engagement", normalize: str | None = None):
+                    index: str = "engagement", normalize: str = "false"):
     """
-    Summarizes EEG indices (engagement or attention) for given video(s), participant(s), and region(s), with optional normalization per participant.
-    Reads directly from the precomputed "engagement" and "attention" columns in eeg.csv.
+    Summarizes EEG indices (engagement or attention) for given video(s), participant(s), and region(s),
+    with optional normalization per participant. Reads from precomputed eeg.csv.
 
-    Each row contains a list of index values per clean 0.5s window for a single channel.
-    video_id: One of the videos: 0, 1, 2, 3 (these are mDVs v3-v6).
-    participant_id: Accepts a list of IDs or just one integer. The list is in variable <participants> above which should be updated with new data
-    region: Brain regions: all, frontal, frontocentral, parietal, other. "all" means the 4 regions combined
-    index: engagement, attention.
-    normalize: None, "minmax", or "zscore"
+    Parameters
+    ----------
+    video_id : int
+        One of the videos: 0, 1, 2, 3 (corresponding to v3–v6).
+    participant_id : list[int] or int
+        Either a single participant ID or a list of participants.
+        The list is in variable <participants> above which should be updated with new data
+    region : str
+        Brain region: 'all', 'frontal', 'frontocentral', 'parietal', 'other'.
+        'all' means region = "all" as precomputed in the CSV.
+    index : str
+        'engagement' or 'attention'.
+    normalize : None | 'minmax' | 'zscore'
+        Whether to normalize per participant before averaging.
 
-    Returns: The average index values across the region over the participants
+    Returns
+    -------
+    np.ndarray
+        Group-level average index time series, index-aligned across participants.
     """
-    # Load EEG CSV
-    df = pd.read_csv(EEG_CSV_PATH)
 
-    # Convert stringified lists back to Python lists
+    # Load CSV
+    df = pd.read_csv(EEG_CSV_PATH) #  EEG_CSV_PATH OR EEG_BASELINE_SUBTRACTED_CSV_PATH
+    # Convert stringified lists back into Python lists
     df['engagement'] = df['engagement'].apply(eval)
     df['attention']  = df['attention'].apply(eval)
 
@@ -74,43 +86,37 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     else:
         df = df[df['participant'].isin(participant_id)]
 
-    # Filter by region if not "all"
-    if region != "all":
-        df = df[df['region'].str.lower() == region.lower()]
+    # Filter by region
+    df = df[df['region'].str.lower() == region.lower()]
 
     if df.empty:
         raise ValueError("No data found for given parameters.")
 
-    # --- Process participant-wise data ---
+    # --- Per participant processing ---
     participant_data = []
-
     for pid, group in df.groupby('participant'):
-        # Pick engagement or attention
-        vals = group[index].tolist()  # each element = list of windows per channel
-        # Average across channels/regions for this participant
-        channel_means = np.mean([np.array(v) for v in vals], axis=0)
+        # Each row is already region-averaged → just take it
+        vals = group[index].tolist()[0]  # only 1 row per participant per region
+        vals = np.array(vals)
 
-        # Optional normalization per participant
-        if normalize == "minmax":
-            min_val = np.min(channel_means)
-            max_val = np.max(channel_means)
-            if max_val != min_val:
-                channel_means = (channel_means - min_val) / (max_val - min_val)
-        elif normalize == "zscore":
-            mean_val = np.mean(channel_means)
-            std_val = np.std(channel_means)
-            if std_val != 0:
-                channel_means = (channel_means - mean_val) / std_val
+        # Optional normalization
+        # if normalize == "minmax":
+        #     min_val, max_val = np.min(vals), np.max(vals)
+        #     if max_val > min_val:
+        #         vals = (vals - min_val) / (max_val - min_val)
+        if normalize == "true":
+            mean_val, std_val = np.mean(vals), np.std(vals)
+            if std_val > 0:
+                vals = (vals - mean_val) / std_val
 
-        # Smooth signal
-        smoothed = smooth_signal(channel_means)
-        participant_data.append(smoothed)
+        # Already smoothed in preprocessing, but can smooth again if desired
+        vals = smooth_signal(vals)
+        participant_data.append(vals)
 
-    # --- Average across participants ---
+    # --- Index alignment & group average ---
     min_len = min(len(arr) for arr in participant_data)
     trimmed = np.array([arr[:min_len] for arr in participant_data])
     return np.mean(trimmed, axis=0)
-
 # FastAPI routes
 # Index page - shows all videos
 def home():
@@ -139,18 +145,20 @@ def get_stimuli_by_video_id(video_id: str):
     vide_stim_info = [stimuli[s] for s in unique_stimuli_ids]
     return stimuli_list, vide_stim_info
 
-def get_eeg_data_by_video_id(video_id: str):
-    engagement_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="engagement", normalize='minmax')
+def get_eeg_data_by_video_id(video_id: str, normalize: str | None = None):
+    engagement_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="engagement", normalize=normalize)
     engagement_list = engagement_data.tolist()
-    attention_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="attention", normalize='minmax')
+    attention_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="attention", normalize=normalize)
     attention_list = attention_data.tolist()
     return engagement_list, attention_list
 
 @app.get("/player", response_class=HTMLResponse)
-async def player(request: Request, id: str):
+async def player(request: Request, id: str, normalize: bool = Query(False)):
     video = get_video_by_video_id(id)
     stimuli_list, vide_stim_info = get_stimuli_by_video_id(id)
-    eng_list, atn_list = get_eeg_data_by_video_id(id)
+    eng_list, atn_list = get_eeg_data_by_video_id(id, normalize)
+    print("Engagement data length:", len(eng_list))
+    print("Attention data length:", len(atn_list))
     return templates.TemplateResponse("player.html", 
                                         {"request": request, 
                                         "video": video, 
@@ -176,37 +184,78 @@ def get_video_stimuli(video_id: int):
 def get_filtered_eeg_api(
     video: int,
     participant: list[int] = Query(None),
-    region: list[str] = Query(None)
+    region: list[str] = Query(None),
+    normalize: str = Query('false'),
+    merge: str = Query('false')
 ):
     try:
         if participant is None:
             participant = participants
         results = {}
-
-        for p in participant:
+        if merge == 'true':
+            print("Merging all participants")
             if region:
                 for r in region:
-                    engagement = get_eeg_summary(video, p, r, index="engagement", normalize='minmax')
-                    attention = get_eeg_summary(video, p, r, index="attention", normalize='minmax')
-                    results[f"participant_{p}_{r}"] = {
+                    engagement = get_eeg_summary(video, participant, r, index="engagement", normalize=normalize)
+                    attention = get_eeg_summary(video, participant, r, index="attention", normalize=normalize)
+                    results[f"all_{r}"] = {
                         "engagement": engagement.tolist(),
-                        "attention": attention.tolist()
+                        "attention": attention.tolist(),
+                        "region": r,
+                        "participant": "all"
                     }
+                    print(f"Computed all participants for region {r}")
             else:
-                engagement = get_eeg_summary(video, p, "all", index="engagement", normalize='minmax')
-                attention = get_eeg_summary(video, p, "all", index="attention", normalize='minmax')
-                results[f"participant_{p}_all"] = {
+                engagement = get_eeg_summary(video, participant, "all", index="engagement", normalize=normalize)
+                attention = get_eeg_summary(video, participant, "all", index="attention", normalize=normalize)
+                results["all"] = {
                     "engagement": engagement.tolist(),
-                    "attention": attention.tolist()
+                    "attention": attention.tolist(),
+                    "region": "all",
+                    "participant": "all"
                 }
-        results = {}
-        
-        engagement_all = get_eeg_summary(video, participant, "all", index="engagement", normalize='minmax')
-        attention_all = get_eeg_summary(video, participant, "all", index="attention", normalize='minmax')
-        results["all"] = {
-            "engagement": engagement_all.tolist(),
-            "attention": attention_all.tolist()
+                print("Computed all participants for all regions")
+        else:
+            print("Processing individual participants")
+            for p in participant:
+                if region:
+                    for r in region:
+                        engagement = get_eeg_summary(video, p, r, index="engagement", normalize=normalize)
+                        attention = get_eeg_summary(video, p, r, index="attention", normalize=normalize)
+                        # region R for participant P
+                        results[f"{p}_{r}"] = {
+                            "engagement": engagement.tolist(),
+                            "attention": attention.tolist(),
+                            "region": r,
+                            "participant": p
+                        }
+                        print(f"Computed participant {p} for region {r}")
+                else:
+                    engagement = get_eeg_summary(video, p, "all", index="engagement", normalize=normalize)
+                    attention = get_eeg_summary(video, p, "all", index="attention", normalize=normalize)
+                    # all regions for participant P
+                    results[f"{p}"] = {
+                        "engagement": engagement.tolist(),
+                        "attention": attention.tolist(),
+                        "region": "all",
+                        "participant": p
+                    }
+                    print(f"Computed participant {p} for all regions")
+        results["meta"] = {
+            "video": video,
+            "participants": participant,
+            "regions": region if region else ["all"],
+            "normalize": normalize,
+            "length": len(next(iter(results.values()))["engagement"]) if results else 0
         }
+        # overall average across all selected participants and regions
+        # engagement_all = get_eeg_summary(video, participant, "all", index="engagement", normalize=normalize)
+        # attention_all = get_eeg_summary(video, participant, "all", index="attention", normalize=normalize)
+        # results["all"] = {
+        #     "engagement": engagement_all.tolist(),
+        #     "attention": attention_all.tolist()
+        # }
+        return JSONResponse(content=results)
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
 

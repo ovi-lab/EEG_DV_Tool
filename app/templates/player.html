@@ -17,10 +17,10 @@
       </video>
       <!-- label for the stimuli to be added -->
       <div id="eeg-viewer">
-        <label class="merge">
+        <!-- <label class="merge">
           <input type="checkbox" name="merge" value="merge">
           Merge the Selected Participants
-        </label>
+        </label> -->
         <canvas id="eegChart" style="width: 100%; height: 100%;"></canvas>
       </div>
     </div>
@@ -49,6 +49,16 @@
           </label>
         </div>
 
+        <label>
+          <input type="radio" name="merge" value="merge" id="radio1">
+          Merge
+        </label>
+
+        <label>
+          <input type="radio" name="normalize" value="normalize" id="radio2">
+          Normalize
+        </label>
+
         <label for="stimuliFilter" style="font-weight: bold; font-size: 0.9em;">Stimuli:</label>
         <div id="stimuliCheckboxes" style="display: flex; flex-direction: column; gap: 0.3em; font-size: small;">
           <!-- checkboxes will be generated here -->
@@ -65,7 +75,6 @@
     const participantsData = {{ participants | tojson }};
     const stimuli2 = {{ stimuli_info | tojson }};
     const stimuliData = {{ stimuli_data | tojson }};
-
     const stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
     1: {"id": 1, "label": "Zoom", "color": "#3cb44b"},
@@ -88,8 +97,11 @@
     const video = document.getElementById("video-player");
 
     let currentVideoTime = 0;
+    let syncInterval = null;
+    let currentRegion = null;
     let currentParticipant = null;
-    let currentRegion = [];
+    let mergeSelected = false;
+    let normalizeSelected = false;
 
     //Participants
     dropdown.innerHTML = `
@@ -118,19 +130,20 @@
           document.querySelectorAll('#participantDropdown input[type="checkbox"]').forEach(cb => {
             cb.checked = true;
           });
-          currentParticipant = null;
         } else {
           document.querySelectorAll('#participantDropdown input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
           });
-          currentParticipant = null;
         }
+        currentParticipant = null;
         return;
       } else {
-        currentParticipant = [parseInt(selected)];
+        currentParticipant = [];
         currentParticipant = Array.from(
           document.querySelectorAll('#participantDropdown input[type="checkbox"]:checked')
         ).map(el => parseInt(el.value));
+      }
+    });
 
     //Regions
     document.querySelectorAll('#regionFilter input[type="checkbox"]').forEach(checkbox => {
@@ -138,7 +151,6 @@
       const selectedRegions = Array.from(
         document.querySelectorAll('#regionFilter input[type="checkbox"]:checked')
       ).map(el => el.value);
-
     currentRegion = selectedRegions;
   });
 });
@@ -169,6 +181,24 @@
     container.appendChild(wrapper);
   });
 
+    //Radio buttons
+    const radio1 = document.getElementById("radio1");
+      radio1.addEventListener("click", function(e) {
+        if (this.checked && this.wasChecked) {
+          this.checked = false;
+        }
+        this.wasChecked = this.checked;
+        mergeSelected = this.checked;
+    });
+
+    const radio2 = document.getElementById("radio2");
+      radio2.addEventListener("click", function(e) {
+        if (this.checked && this.wasChecked) {
+          this.checked = false;
+        }
+        this.wasChecked = this.checked;
+        normalizeSelected = this.checked;
+    });
     //Video Sync Line Plugin
     const videoSyncLinePlugin = {
       id: 'video-sync-line',
@@ -252,7 +282,7 @@
         responsive: true,
         scales: {
           x: { title: { display: true, text: 'Time (index)' } },
-          y: { title: { display: true, text: 'Amplitude' }, min: 0, max: 3} // Within y: {}, add min: 0, max: 3 args to set the scale of the y-axis
+          y: { title: { display: true, text: 'Amplitude' }} // Within y: {}, add min: 0, max: 3 args to set the scale of the y-axis
         },
         plugins: {
           'stimuli-overlay': {
@@ -266,52 +296,15 @@
       plugins: [stimuliOverlayPlugin, videoSyncLinePlugin]
     });
 
-    function updateChartWithRegions(selectedRegions, regionData) {
-    // Colors for regions
-    const colors = {
-      frontal: ['red', 'darkred'],
-      frontocentral: ['green', 'darkgreen'],
-      parietal: ['blue', 'darkblue']
-    };
-
-    // Append region datasets
-    selectedRegions.forEach(region => {
-      if (regionData[region]) {
-        chart.data.datasets.push({
-          label: `Engagement (${region})`,
-          data: regionData[region].engagement,
-          borderColor: colors[region][0],
-          borderWidth: 1,
-          pointRadius: 0,
-          tension: 0.3
-        });
-        chart.data.datasets.push({
-          label: `Attention (${region})`,
-          data: regionData[region].attention,
-          borderColor: colors[region][1],
-          borderWidth: 1,
-          pointRadius: 0,
-          tension: 0.3
-        });
-      }
-    });
-
-    chart.update();
-  }
-
-
     function updateSyncLine() {
       if (video.paused || video.ended) return;
       currentVideoTime = Math.floor(video.currentTime * 2); // EEG index = video time * 2
       chart.update('none'); // prevent animation
     }
 
-    let syncInterval = null;
-
-
     video.addEventListener('play', () => {
-    syncInterval = setInterval(updateSyncLine, 100);
-  });
+      syncInterval = setInterval(updateSyncLine, 100);
+    });
 
     video.addEventListener('pause', () => {
       clearInterval(syncInterval);
@@ -325,85 +318,160 @@
       updateSyncLine();
     });
 
+    function updateChartWithRegions(selectedParticipants, selectedRegions, merge, fetchedData) {
+    // Colors for regions
+      // const colors = {
+      //   frontal: [getRandomColor(), getRandomColor()],
+      //   frontocentral: [getRandomColor(), getRandomColor()],
+      //   parietal: [getRandomColor(), getRandomColor()]
+      // };
+
+      if (merge){
+        selectedRegions.forEach(region => {
+          if (fetchedData[`all_${region}`]) {
+            chart.data.datasets.push({
+              label: `Engagement (all - ${region})`,
+              data: fetchedData[`all_${region}`].engagement,
+              borderColor: getRandomColor(),
+              borderWidth: 1,
+              pointRadius: 0,
+              tension: 0.3
+            });
+            chart.data.datasets.push({
+              label: `Attention (all - ${region})`,
+              data: fetchedData[`all_${region}`].attention,
+              borderColor: getRandomColor(),
+              borderWidth: 1,
+              pointRadius: 0,
+              tension: 0.3
+            });
+          }
+        })
+      }
+
+      else {
+        selectedParticipants.forEach(p => {
+          selectedRegions.forEach(region => {
+            if (fetchedData[`${p}_${region}`]) {
+              chart.data.datasets.push({
+                label: `Engagement (P${p} - ${region})`,
+                data: fetchedData[`${p}_${region}`].engagement,
+                borderColor: getRandomColor(),
+                borderWidth: 1,
+                pointRadius: 0,
+                tension: 0.3
+              });
+              chart.data.datasets.push({
+                label: `Attention (P${p} - ${region})`,
+                data: fetchedData[`${p}_${region}`].attention,
+                borderColor: getRandomColor(),
+                borderWidth: 1,
+                pointRadius: 0,
+                tension: 0.3
+              });
+            }
+          });
+        });
+      }
+      chart.update();
+  }
+
+    function updateChartwithoutRegions (selectedParticipants, merge, fetchedData){
+      if (merge){
+        console.log("Merging all participants");
+        if (fetchedData['all']) {
+          chart.data.datasets.push({
+            label: `Engagement (all)`,
+            data: fetchedData['all'].engagement,
+            borderColor: getRandomColor(),
+            borderWidth: 1,
+            pointRadius: 0,
+            tension: 0.3
+          });
+          chart.data.datasets.push({
+            label: `Attention (all)`,
+            data: fetchedData['all'].attention,
+            borderColor: getRandomColor(),
+            borderWidth: 1,
+            pointRadius: 0,
+            tension: 0.3
+          });
+        }
+      } else {
+        console.log("Not merging, showing individual participants");
+        selectedParticipants.forEach(p => {
+          if (fetchedData[`${p}`]) {
+            chart.data.datasets.push({
+              label: `Engagement (P${p})`,
+              data: fetchedData[`${p}`].engagement,
+              borderColor: getRandomColor(),
+              borderWidth: 1,
+              pointRadius: 0,
+              tension: 0.3
+            });
+            chart.data.datasets.push({
+              label: `Attention (P${p})`,
+              data: fetchedData[`${p}`].attention,
+              borderColor: getRandomColor(),
+              borderWidth: 1,
+              pointRadius: 0,
+              tension: 0.3
+            });
+          }
+        });
+      }
+      chart.update();
+    }
+    
+    function getRandomColor() {
+      var letters = '0123456789ABCDEF';
+      var color = '#';
+      for (var i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
     document.getElementById('applyFilters').addEventListener('click', () => {
       const regionParams = currentRegion;
       const videoId = document.getElementById('videoId').value;
       const participantParams = currentParticipant;
+      const merge = mergeSelected;
+      const normalize = normalizeSelected;
+
       const selectedStimuli = Array.from(
         document.querySelectorAll('#stimuliCheckboxes input[type="checkbox"]:checked')
       ).map(cb => cb.value);
-
-
-      let query = `/api/eeg?video=${videoId}&region=${region}`;
-      
+     
       const queryParams = new URLSearchParams();
       queryParams.append('video', videoId);
-
       if (participantParams) {
         participantParams.forEach(p => queryParams.append('participant', p));
       }
-
       if (regionParams) {
         regionParams.forEach(r => queryParams.append('region', r));
       }
-      let query = `/api/eeg?${queryParams.toString()}`;
+      queryParams.append('merge', merge ? 'true' : 'false');
+      queryParams.append('normalize', normalize ? 'true' : 'false');
 
+      const eegQuery = `/api/eeg?${queryParams.toString()}`;
       const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
       Promise.all([
-        fetch(query).then(res => res.json()),
+        fetch(eegQuery).then(res => res.json()),
         fetch(stimuliQuery).then(res => res.json())
       ])
         .then(([eegData, stimuliData]) => {
-
-          chart.data.labels = Array.from({ length: eegData.engagement.length }, (_, i) => i);
-          chart.data.datasets[0].data = eegData.engagement;
-          chart.data.datasets[1].data = eegData.attention;
-      
-
-          // Set new stimuli
-          chart.data.labels = Array.from({ length: eegData["all"].engagement.length }, (_, i) => i);
-          chart.data.datasets[0].data = eegData["all"].engagement;
-          chart.data.datasets[1].data = eegData["all"].attention;
-          updateChartWithRegions(currentRegion, eegData);
-
-
+          chart.data.labels = Array.from({ length: eegData.meta.length }, (_, i) => i);
+          chart.data.datasets = chart.data.datasets.slice(0, 2); // Reset to only engagement and attention
+          if (regionParams) {
+            updateChartWithRegions(participantParams, regionParams, merge, eegData);
+          } else {
+            updateChartwithoutRegions(participantParams, merge, eegData);
+          }
           chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
           chart.options.plugins['stimuli-overlay'].selectedStimuli = selectedStimuli;
-          chart.update();
-          chart.destroy();
-          const newConfig = {
-            type = 'line',
-            data = {
-              labels: Array.from({ length: eegData["all"].engagement.length }, (_, i) => i),
-              datasets: [{
-                label: 'Engagement',
-                data: eegData["all"].engagement,
-                borderColor: 'brown',
-                borderWidth: 1,
-                pointRadius: 0,
-                tension: 0.3
-              }, {
-                label: 'Attention',
-                data: eegData["all"].attention,
-                borderColor: 'black',
-                borderWidth: 1,
-                pointRadius: 0,
-                tension: 0.3
-              }]
-            },
-          }
-          // let chart = new Chart (ctx, {
-          //   type
-          // })
-          // chart.data.labels = Array.from({ length: eegData["all"].engagement.length }, (_, i) => i);
-          // chart.data.datasets[0].data = eegData["all"].engagement;
-          // chart.data.datasets[1].data = eegData["all"].attention;
-          // updateChartWithRegions(currentRegion, eegData);
-
-          // chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
-          // chart.options.plugins['stimuli-overlay'].selectedStimuli = selectedStimuli;
-          // chart.update();
+          chart.update();            
         })
         .catch(err => {
           console.error("Failed to fetch EEG or stimuli data:", err);

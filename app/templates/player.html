@@ -127,11 +127,10 @@
         }
         return;
       } else {
+        currentParticipant = [parseInt(selected)];
         currentParticipant = Array.from(
           document.querySelectorAll('#participantDropdown input[type="checkbox"]:checked')
         ).map(el => parseInt(el.value));
-      }
-    });
 
     //Regions
     document.querySelectorAll('#regionFilter input[type="checkbox"]').forEach(checkbox => {
@@ -333,17 +332,22 @@
       const selectedStimuli = Array.from(
         document.querySelectorAll('#stimuliCheckboxes input[type="checkbox"]:checked')
       ).map(cb => cb.value);
+
+
+      let query = `/api/eeg?video=${videoId}&region=${region}`;
       
       const queryParams = new URLSearchParams();
       queryParams.append('video', videoId);
-      console.log(participantParams);
+
       if (participantParams) {
         participantParams.forEach(p => queryParams.append('participant', p));
       }
+
       if (regionParams) {
         regionParams.forEach(r => queryParams.append('region', r));
       }
       let query = `/api/eeg?${queryParams.toString()}`;
+
       const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
       Promise.all([
@@ -351,6 +355,22 @@
         fetch(stimuliQuery).then(res => res.json())
       ])
         .then(([eegData, stimuliData]) => {
+
+          chart.data.labels = Array.from({ length: eegData.engagement.length }, (_, i) => i);
+          chart.data.datasets[0].data = eegData.engagement;
+          chart.data.datasets[1].data = eegData.attention;
+      
+
+          // Set new stimuli
+          chart.data.labels = Array.from({ length: eegData["all"].engagement.length }, (_, i) => i);
+          chart.data.datasets[0].data = eegData["all"].engagement;
+          chart.data.datasets[1].data = eegData["all"].attention;
+          updateChartWithRegions(currentRegion, eegData);
+
+
+          chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
+          chart.options.plugins['stimuli-overlay'].selectedStimuli = selectedStimuli;
+          chart.update();
           chart.destroy();
           const newConfig = {
             type = 'line',

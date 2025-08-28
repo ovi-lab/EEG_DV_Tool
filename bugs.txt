@@ -1,0 +1,3 @@
+1. When selecting regions multiple times, the line plots add up instead of just changing or being removed
+
+2. Cannot select multiple participants together (to calculate their average index)

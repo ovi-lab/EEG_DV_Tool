@@ -436,7 +436,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """
 
     # Load CSV
-    df = pd.read_csv(EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH) #  EEG_CSV_PATH | EEG_BASELINE_SUBTRACTED_CSV_PATH | EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH
+    df = pd.read_csv(EEG_BASELINE_SUBTRACTED_CSV_PATH) #  EEG_CSV_PATH | EEG_BASELINE_SUBTRACTED_CSV_PATH | EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH
     # Convert stringified lists back into Python lists
     df['engagement'] = df['engagement'].apply(to_list)
     df['attention']  = df['attention'].apply(to_list)

@@ -484,6 +484,7 @@
       if (participantParams) {
         participantParams.forEach(p => queryParams.append('participant', p));
       }
+      console.log("selected participants: ",participantParams);
       if (regionParams) {
         regionParams.forEach(r => queryParams.append('region', r));
       }

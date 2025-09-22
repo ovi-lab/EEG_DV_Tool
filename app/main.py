@@ -315,7 +315,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
-EEG_BASELINE_SUBTRACTED_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted.csv")
+EEG_BASELINE_SUBTRACTED_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_ManualNoiseRemove.csv")
 EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_noise_as_nan_log.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 

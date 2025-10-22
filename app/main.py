@@ -316,11 +316,12 @@ templates = Jinja2Templates(directory="app/templates")
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 EEG_BASELINE_SUBTRACTED_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_ManualNoiseRemove.csv")
+EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_Not_Smoothed.csv")
 EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_noise_as_nan_log.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27]
+participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27] 
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -436,7 +437,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """
 
     # Load CSV
-    df = pd.read_csv(EEG_BASELINE_SUBTRACTED_CSV_PATH) #  EEG_CSV_PATH | EEG_BASELINE_SUBTRACTED_CSV_PATH | EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH
+    df = pd.read_csv(EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED) #  EEG_CSV_PATH | EEG_BASELINE_SUBTRACTED_CSV_PATH | EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH
     # Convert stringified lists back into Python lists
     df['engagement'] = df['engagement'].apply(to_list)
     df['attention']  = df['attention'].apply(to_list)
@@ -474,7 +475,10 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
                     # Create normalized array preserving NaN positions
                     normalized_vals = np.full_like(vals, np.nan)
                     normalized_vals[valid_mask] = (valid_values - mean_val) / std_val
+                    np.set_printoptions(precision=4, suppress=True)
+                    print("raw values", vals)
                     vals = normalized_vals
+                    print("normalized values", vals)
 
         # Smooth signal while preserving NaN values
         vals = smooth_signal(vals)

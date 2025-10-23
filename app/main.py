@@ -30,7 +30,6 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
-EEG_CSV_PATH = os.path.join("app", "static", "data", "eeg.csv")
 EEG_BASELINE_SUBTRACTED_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_ManualNoiseRemove.csv")
 EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_Not_Smoothed.csv")
 EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_noise_as_nan_log.csv")

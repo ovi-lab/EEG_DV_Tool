@@ -36,7 +36,7 @@ EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH = os.path.join("app", "static", "data"
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30] 
+participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28] 
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},

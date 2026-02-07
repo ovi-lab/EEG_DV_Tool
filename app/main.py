@@ -31,15 +31,21 @@ templates = Jinja2Templates(directory="app/templates")
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
-EEG_RAW_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM = os.path.join("app", "static", "data", "eeg_cross_power_normalized.csv")
-EEG_RAW_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_NO_BASELINE_SUBTRACTION = os.path.join("app", "static", "data", "eeg_no_baseline_subtraction_TRIM_S1_E0.3.csv")
+EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM = os.path.join("app", "static", "data", "eeg_cross_power_normalized.csv")
+EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower.csv")
+
+EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM_dB = os.path.join("app", "static", "data", "eeg_cross_power_normalized_dB.csv")
+
+EEG_RAW_VIDEO_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM = os.path.join("app", "static", "data", "eeg_video_power_normalized.csv")
 
 EEG_BASELINE_SUBTRACTED_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_ManualNoiseRemove.csv")
 EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_Not_Smoothed.csv")
 EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH = os.path.join("app", "static", "data", "eeg_mean_baseline_subtracted_noise_as_nan_log.csv")
 
+CLIP_STD = 2 # For Option 2 of Z-normalization method
+
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] 
+participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33] 
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -155,7 +161,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """
 
     # Load CSV
-    df = pd.read_csv(EEG_RAW_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM) #  Options present above EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED EEG_RAW_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED
+    df = pd.read_csv(EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM) #  Options present above EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM
     # Convert stringified lists back into Python lists
     df['engagement'] = df['engagement'].apply(to_list)
     df['attention']  = df['attention'].apply(to_list)
@@ -177,30 +183,122 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
 
     # --- Per participant processing ---
     participant_data = []
-    for pid, group in df.groupby('participant'):
-        # Each row is already region-averaged → just take it
-        vals = group[index].tolist()[0]  # only 1 row per participant per region
-        vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
+    NORM = 2 # [0: Normal z-norm, 1: Robust using median and IQR, 2: Clip outliers]
+    if NORM == 0:
+        for pid, group in df.groupby('participant'):
+            # Each row is already region-averaged → just take it
+            vals = group[index].tolist()[0]  # only 1 row per participant per region
+            vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
 
-        # Optional normalization - only on non-NaN values
-        if normalize == "true":
-            # Only normalize if we have valid (non-NaN) values
-            valid_mask = ~np.isnan(vals)
-            if np.sum(valid_mask) > 0:  # Check if we have any valid values
-                valid_values = vals[valid_mask]
-                mean_val, std_val = np.mean(valid_values), np.std(valid_values)
-                if std_val > 0:
-                    # Create normalized array preserving NaN positions
-                    normalized_vals = np.full_like(vals, np.nan)
-                    normalized_vals[valid_mask] = (valid_values - mean_val) / std_val
-                    np.set_printoptions(precision=4, suppress=True)
-                    print("raw values", vals)
-                    vals = normalized_vals
-                    print("normalized values", vals)
+            # Optional normalization - only on non-NaN values
+            if normalize == "true":
+                # Only normalize if we have valid (non-NaN) values
+                valid_mask = ~np.isnan(vals)
+                if np.sum(valid_mask) > 0:  # Check if we have any valid values
+                    valid_values = vals[valid_mask]
+                    mean_val, std_val = np.mean(valid_values), np.std(valid_values)
+                    if std_val > 0:
+                        # Create normalized array preserving NaN positions
+                        normalized_vals = np.full_like(vals, np.nan)
+                        normalized_vals[valid_mask] = (valid_values - mean_val) / std_val
+                        np.set_printoptions(precision=4, suppress=True)
+                        # print("raw values", vals)
+                        vals = normalized_vals
+                        # print("normalized values", vals)
 
-        # Smooth signal while preserving NaN values
-        vals = smooth_signal(vals)
-        participant_data.append(vals)
+            # Smooth signal while preserving NaN values
+            # vals = smooth_signal(vals)
+            participant_data.append(vals)
+
+    elif NORM == 1:
+        for pid, group in df.groupby('participant'):
+            # Each row is already region-averaged → just take it
+            vals = group[index].tolist()[0]  # only 1 row per participant per region
+            vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
+
+            # Optional normalization - only on non-NaN values
+            if normalize == "true":
+                # Only normalize if we have valid (non-NaN) values
+                valid_mask = ~np.isnan(vals)
+                if np.sum(valid_mask) > 0:  # Check if we have any valid values
+                    valid_values = vals[valid_mask]
+                    
+                    # --- ROBUST Z-NORM (Option 1: Median + IQR) ---
+                    from scipy.stats import iqr
+                    
+                    median_val = np.median(valid_values)
+                    iqr_val = iqr(valid_values)
+                    
+                    if iqr_val > 0:
+                        # Robust z-norm: use median and IQR instead of mean and std
+                        normalized_vals = np.full_like(vals, np.nan)
+                        normalized_vals[valid_mask] = (valid_values - median_val) / iqr_val
+                        
+                        np.set_printoptions(precision=4, suppress=True)
+                        # print("raw values", vals)
+                        # print(f"  median: {median_val:.4f}, IQR: {iqr_val:.4f}")
+                        vals = normalized_vals
+                        # print("normalized values", vals)
+
+            # Smooth signal while preserving NaN values
+            # vals = smooth_signal(vals)
+            participant_data.append(vals)
+
+    elif NORM == 2: # Clip outliers
+        for pid, group in df.groupby('participant'):
+            # Each row is already region-averaged → just take it
+            vals = group[index].tolist()[0]  # only 1 row per participant per region
+            vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
+
+            # Optional normalization - only on non-NaN values
+            if normalize == "true":
+                # Only normalize if we have valid (non-NaN) values
+                valid_mask = ~np.isnan(vals)
+                if np.sum(valid_mask) > 0:  # Check if we have any valid values
+                    valid_values = vals[valid_mask]
+                    ZNORM = 1 # [1 = Z-NORMALIZE, 0 = ONLY CLIP]
+                    if ZNORM == 1: 
+                        mean_val, std_val = np.mean(valid_values), np.std(valid_values)
+                        if std_val > 0:
+                            # --- CLIP OUTLIERS BEFORE Z-NORM (Option 2) ---
+                            clip_lower = mean_val - CLIP_STD * std_val
+                            clip_upper = mean_val + CLIP_STD * std_val
+                            clipped_values = np.clip(valid_values, clip_lower, clip_upper)
+                            
+                            # Recalculate mean and std AFTER clipping
+                            mean_clipped = np.mean(clipped_values)
+                            std_clipped = np.std(clipped_values)
+                            
+                            # Z-norm on clipped values
+                            normalized_vals = np.full_like(vals, np.nan)
+                            if std_clipped > 0:
+                                normalized_vals[valid_mask] = (clipped_values - mean_clipped) / std_clipped
+                            
+                            np.set_printoptions(precision=4, suppress=True)
+                            # print("raw values", vals)
+                            # print("clipped values", clipped_values)
+                            vals = normalized_vals
+                            # print("normalized values", vals)
+                    elif ZNORM == 0:
+                        mean_val = np.mean(valid_values)
+                        std_val = np.std(valid_values)
+                        
+                        if std_val > 0:
+                            clip_lower = mean_val - CLIP_STD * std_val
+                            clip_upper = mean_val + CLIP_STD * std_val
+                            
+                            clipped_vals = np.full_like(vals, np.nan)
+                            clipped_vals[valid_mask] = np.clip(valid_values, clip_lower, clip_upper)
+                            
+                            np.set_printoptions(precision=4, suppress=True)
+                            # print("raw values", vals)
+                            # print(f"  clip range: [{clip_lower:.4f}, {clip_upper:.4f}]")
+                            vals = clipped_vals
+                            # print("clipped values", vals)
+
+            # Smooth signal while preserving NaN values
+            # vals = smooth_signal(vals)
+            participant_data.append(vals)
 
     # --- Index alignment & group average with NaN handling ---
     group_average = align_and_average_with_nan(participant_data)
@@ -264,7 +362,7 @@ async def player(request: Request, id: str, normalize: bool = Query(False)):
     eng_list, atn_list = get_eeg_data_by_video_id(id, normalize)
     print("Engagement data length:", len(eng_list))
     print("Attention data length:", len(atn_list))
-    return templates.TemplateResponse("player2.html", 
+    return templates.TemplateResponse("player.html", 
                                         {"request": request, 
                                         "video": video, 
                                         "eng_data":  eng_list, 

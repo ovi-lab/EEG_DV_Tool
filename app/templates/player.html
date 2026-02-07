@@ -70,8 +70,14 @@
   </div>
   <input type="hidden" id="videoId" value="{{ video.id }}">
   <script>
-    const engagementData = {{ eng_data | tojson }};
-    const attentionData = {{ atn_data | tojson }};
+    // Helper function to clean data - convert null values to NaN for Chart.js
+    function cleanDataForChart(data) {
+      if (!Array.isArray(data)) return data;
+      return data.map(value => value === null ? NaN : value);
+    }
+
+    const engagementData = cleanDataForChart({{ eng_data | tojson }});
+    const attentionData = cleanDataForChart({{ atn_data | tojson }});
     const participantsData = {{ participants | tojson }};
     const stimuli2 = {{ stimuli_info | tojson }};
     const stimuliData = {{ stimuli_data | tojson }};
@@ -257,6 +263,7 @@
     };
 
     Chart.register(stimuliOverlayPlugin, videoSyncLinePlugin);
+    
     // Step 1: Initialize chart with initial data
     let chart = new Chart(ctx, {
       type: 'line',
@@ -268,21 +275,27 @@
           borderColor: 'brown',
           borderWidth: 1,
           pointRadius: 0,
-          tension: 0.3
+          tension: 0.3,
+          spanGaps: false  // This will break the line at NaN values instead of interpolating
         }, {
           label: 'Attention',
           data: attentionData,
           borderColor: 'black',
           borderWidth: 1,
           pointRadius: 0,
-          tension: 0.3
+          tension: 0.3,
+          spanGaps: false  // This will break the line at NaN values instead of interpolating
         }]
       },
       options: {
         responsive: true,
         scales: {
-          x: { title: { display: true, text: 'Time (index)' } },
-          y: { title: { display: true, text: 'Amplitude' }} // Within y: {}, add min: 0, max: 3 args to set the scale of the y-axis
+          x: { 
+            title: { display: true, text: 'Time (index)' }
+          },
+          y: { 
+            title: { display: true, text: 'Amplitude' }
+          } // Within y: {}, add min: 0, max: 3 args to set the scale of the y-axis
         },
         plugins: {
           'stimuli-overlay': {
@@ -290,6 +303,21 @@
           },
           'video-sync-line': {
             enabled: true
+          },
+          tooltip: {
+            filter: function(tooltipItem) {
+              // Hide tooltip for NaN values
+              return !isNaN(tooltipItem.parsed.y);
+            }
+          }
+        },
+        elements: {
+          point: {
+            // Don't show points for NaN values
+            pointStyle: function(context) {
+              const value = context.parsed.y;
+              return isNaN(value) ? false : 'circle';
+            }
           }
         }
       },
@@ -319,58 +347,54 @@
     });
 
     function updateChartWithRegions(selectedParticipants, selectedRegions, merge, fetchedData) {
-    // Colors for regions
-      // const colors = {
-      //   frontal: [getRandomColor(), getRandomColor()],
-      //   frontocentral: [getRandomColor(), getRandomColor()],
-      //   parietal: [getRandomColor(), getRandomColor()]
-      // };
-
       if (merge){
         selectedRegions.forEach(region => {
           if (fetchedData[`all_${region}`]) {
             chart.data.datasets.push({
               label: `Engagement (all - ${region})`,
-              data: fetchedData[`all_${region}`].engagement,
+              data: cleanDataForChart(fetchedData[`all_${region}`].engagement),
               borderColor: getRandomColor(),
               borderWidth: 1,
               pointRadius: 0,
               tension: 0.3,
+              spanGaps: false,
               hidden: true
             });
             chart.data.datasets.push({
               label: `Attention (all - ${region})`,
-              data: fetchedData[`all_${region}`].attention,
+              data: cleanDataForChart(fetchedData[`all_${region}`].attention),
               borderColor: getRandomColor(),
               borderWidth: 1,
               pointRadius: 0,
               tension: 0.3,
+              spanGaps: false,
               hidden: true
             });
           }
         })
       }
-
       else {
         selectedParticipants.forEach(p => {
           selectedRegions.forEach(region => {
             if (fetchedData[`${p}_${region}`]) {
               chart.data.datasets.push({
                 label: `Engagement (P${p} - ${region})`,
-                data: fetchedData[`${p}_${region}`].engagement,
+                data: cleanDataForChart(fetchedData[`${p}_${region}`].engagement),
                 borderColor: getRandomColor(),
                 borderWidth: 1,
                 pointRadius: 0,
                 tension: 0.3,
+                spanGaps: false,
                 hidden: true
               });
               chart.data.datasets.push({
                 label: `Attention (P${p} - ${region})`,
-                data: fetchedData[`${p}_${region}`].attention,
+                data: cleanDataForChart(fetchedData[`${p}_${region}`].attention),
                 borderColor: getRandomColor(),
                 borderWidth: 1,
                 pointRadius: 0,
                 tension: 0.3,
+                spanGaps: false,
                 hidden: true
               });
             }
@@ -378,7 +402,7 @@
         });
       }
       chart.update();
-  }
+    }
 
     function updateChartwithoutRegions (selectedParticipants, merge, fetchedData){
       if (merge){
@@ -386,20 +410,22 @@
         if (fetchedData['all']) {
           chart.data.datasets.push({
             label: `Engagement (all)`,
-            data: fetchedData['all'].engagement,
+            data: cleanDataForChart(fetchedData['all'].engagement),
             borderColor: getRandomColor(),
             borderWidth: 1,
             pointRadius: 0,
             tension: 0.3,
+            spanGaps: false,
             hidden: true
           });
           chart.data.datasets.push({
             label: `Attention (all)`,
-            data: fetchedData['all'].attention,
+            data: cleanDataForChart(fetchedData['all'].attention),
             borderColor: getRandomColor(),
             borderWidth: 1,
             pointRadius: 0,
             tension: 0.3,
+            spanGaps: false,
             hidden: true
           });
         }
@@ -409,20 +435,22 @@
           if (fetchedData[`${p}`]) {
             chart.data.datasets.push({
               label: `Engagement (P${p})`,
-              data: fetchedData[`${p}`].engagement,
+              data: cleanDataForChart(fetchedData[`${p}`].engagement),
               borderColor: getRandomColor(),
               borderWidth: 1,
               pointRadius: 0,
               tension: 0.3,
+              spanGaps: false,
               hidden: true
             });
             chart.data.datasets.push({
               label: `Attention (P${p})`,
-              data: fetchedData[`${p}`].attention,
+              data: cleanDataForChart(fetchedData[`${p}`].attention),
               borderColor: getRandomColor(),
               borderWidth: 1,
               pointRadius: 0,
               tension: 0.3,
+              spanGaps: false,
               hidden: true
             });
           }
@@ -456,6 +484,7 @@
       if (participantParams) {
         participantParams.forEach(p => queryParams.append('participant', p));
       }
+      console.log("selected participants: ",participantParams);
       if (regionParams) {
         regionParams.forEach(r => queryParams.append('region', r));
       }
@@ -472,6 +501,11 @@
         .then(([eegData, stimuliData]) => {
           chart.data.labels = Array.from({ length: eegData.meta.length }, (_, i) => i);
           chart.data.datasets = chart.data.datasets.slice(0, 2); // Reset to only engagement and attention
+          
+          // Update the main datasets with cleaned data
+          chart.data.datasets[0].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.engagement || []);
+          chart.data.datasets[1].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.attention || []);
+          
           if (regionParams) {
             updateChartWithRegions(participantParams, regionParams, merge, eegData);
           } else {

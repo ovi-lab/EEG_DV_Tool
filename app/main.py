@@ -32,7 +32,8 @@ VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
 EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM = os.path.join("app", "static", "data", "eeg_cross_power_normalized.csv")
-EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower.csv")
+EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_SMARTTRIM = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower_Smarttrim.csv")
+EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_NOTRIM = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower_NoTrim.csv")
 
 EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM_dB = os.path.join("app", "static", "data", "eeg_cross_power_normalized_dB.csv")
 
@@ -45,7 +46,7 @@ EEG_BASELINE_SUBTRACTED_NO_NOISE_CSV_PATH = os.path.join("app", "static", "data"
 CLIP_STD = 2 # For Option 2 of Z-normalization method
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33] 
+participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36] 
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
@@ -147,7 +148,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
         Either a single participant ID or a list of participants.
         The list is in variable <participants> above which should be updated with new data
     region : str
-        Brain region: 'all', 'frontal', 'frontocentral', 'parietal', 'other'.
+        Brain region: 'all', 'frontal', 'frontocentral', 'parietal', 'occipital', 'other'.
         'all' means region = "all" as precomputed in the CSV.
     index : str
         'engagement' or 'attention'.
@@ -161,7 +162,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """
 
     # Load CSV
-    df = pd.read_csv(EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM) #  Options present above EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM
+    df = pd.read_csv(EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_SMARTTRIM) #  Options present above EEG_BASELINE_SUBTRACTED_CSV_PATH_NOT_SMOOTHED EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM
     # Convert stringified lists back into Python lists
     df['engagement'] = df['engagement'].apply(to_list)
     df['attention']  = df['attention'].apply(to_list)

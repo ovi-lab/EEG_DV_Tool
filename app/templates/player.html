@@ -98,6 +98,8 @@
     9: {"id": 9, "label": "Area", "color": "#fabebe"},
     10: {"id": 10, "label": "Pictograph", "color": "#008080"},
     11: {"id": 11, "label": "Size Change", "color": "#e6beff"},
+    13: {"id": 13, "label": "Human Appearing Transition", "color": "#77ef77"}, // 12 is for ALL STIMULI
+    14: {"id": 14, "label": "Graphic Appearing Transition", "color": "#006400"}
     }
 
     const dropdown = document.getElementById('participantDropdown');
@@ -298,7 +300,9 @@
             title: { display: true, text: 'Time (index)' }
           },
           y: { 
-            title: { display: true, text: 'Amplitude' }
+            title: { display: true, text: 'Amplitude' },
+            // min: 0,
+            // max: 18
           } // Within y: {}, add min: 0, max: 3 args to set the scale of the y-axis
         },
         plugins: {

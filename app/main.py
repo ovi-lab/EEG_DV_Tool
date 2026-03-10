@@ -42,7 +42,7 @@ EEG_RAW_VIDEO_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM = os.path.join("ap
 CLIP_STD = 2 # For Option 2 of Z-normalization method
 
 # we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38] 
+participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40]
 
 stimuli = {
     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},

@@ -51,6 +51,10 @@
             <input type="checkbox" name="region" value="occipital">
             Occipital
           </label>
+          <label class="region other">
+            <input type="checkbox" name="region" value="other">
+            Other
+          </label>
         </div>
 
         <label>
@@ -85,21 +89,37 @@
     const participantsData = {{ participants | tojson }};
     const stimuli2 = {{ stimuli_info | tojson }};
     const stimuliData = {{ stimuli_data | tojson }};
+    // const stimuli = {
+    //   0: { "id": 0, "label": "Sound effect", "color": "#e6194b" },
+    //   1: { "id": 1, "label": "Zoom", "color": "#3cb44b" },
+    //   2: { "id": 2, "label": "Pointing", "color": "#ffe119" },
+    //   3: { "id": 3, "label": "Highlighting", "color": "#0082c8" },
+    //   4: { "id": 4, "label": "Gradual Text", "color": "#f58231" },
+    //   5: { "id": 5, "label": "Gradual appearance", "color": "#911eb4" },
+    //   6: { "id": 6, "label": "Camera Angle", "color": "#46f0f0" },
+    //   7: { "id": 7, "label": "Animation", "color": "#f032e6" },
+    //   8: { "id": 8, "label": "Map", "color": "#d2f53c" },
+    //   9: { "id": 9, "label": "Area", "color": "#fabebe" },
+    //   10: { "id": 10, "label": "Data Visualization", "color": "#008080" },
+    //   // 10: { "id": 10, "label": "Pictograph", "color": "#008080"},
+    //   11: { "id": 11, "label": "Size Change", "color": "#e6beff" }, // All elements = 12
+    //   13: { "id": 13, "label": "Abrupt Transition", "color": "#77ef77" }, // Refresh Transition(Hard cuts to a person / graphic from a graphic / person)
+    //   14: { "id": 14, "label": "Gradual Transition", "color": "#006400" },
+    //   // 15: { "id": 15, "label": "Data Visualization", "color": "#a4c1c3ff" }  
+    // }
     const stimuli = {
-    0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
-    1: {"id": 1, "label": "Zoom", "color": "#3cb44b"},
-    2: {"id": 2, "label": "Pointing", "color": "#ffe119"},
-    3: {"id": 3, "label": "Highlighting", "color": "#0082c8"},
-    4: {"id": 4, "label": "Gradual Text", "color": "#f58231"},
-    5: {"id": 5, "label": "Gradual appearance", "color": "#911eb4"},
-    6: {"id": 6, "label": "Camera Angle", "color": "#46f0f0"},
-    7: {"id": 7, "label": "Animation", "color": "#f032e6"},
-    8: {"id": 8, "label": "Map", "color": "#d2f53c"},
-    9: {"id": 9, "label": "Area", "color": "#fabebe"},
-    10: {"id": 10, "label": "Pictograph", "color": "#008080"},
-    11: {"id": 11, "label": "Size Change", "color": "#e6beff"},
-    13: {"id": 13, "label": "Human-Appearing Transition", "color": "#77ef77"}, // 12 is for ALL STIMULI
-    14: {"id": 14, "label": "Graphic-Appearing Transition", "color": "#006400"}
+      0: { "id": 0, "label": "Sound effect", "abbrev": "SE", "color": "#C2CDFF" },
+      1: { "id": 1, "label": "Zoom", "abbrev": "ZM", "color": "#FFF3C2" },
+      2: { "id": 2, "label": "Pointing", "abbrev": "PT", "color": "#D9F4CD" },
+      3: { "id": 3, "label": "Highlighting", "abbrev": "HL", "color": "#C7FAE9" },
+      4: { "id": 4, "label": "Gradual Text", "abbrev": "GT", "color": "#FFC2E8" },
+      5: { "id": 5, "label": "Gradual appearance", "abbrev": "GA", "color": "#EBD5FF" },
+      6: { "id": 6, "label": "Camera Angle", "abbrev": "CA", "color": "#A9CEFF" },
+      7: { "id": 7, "label": "Animation", "abbrev": "AN", "color": "#FFADAD" },
+      10: { "id": 10, "label": "Data Visualization", "abbrev": "DVIS", "color": "#FFD699" },
+      11: { "id": 11, "label": "Size Change", "abbrev": "SC", "color": "#DBD5D5" },
+      13: { "id": 13, "label": "Abrupt Transition", "abbrev": "ATR", "color": "#FFB88B" },
+      14: { "id": 14, "label": "Gradual Transition", "abbrev": "GTR", "color": "#C5A8FF" },
     }
 
     const dropdown = document.getElementById('participantDropdown');

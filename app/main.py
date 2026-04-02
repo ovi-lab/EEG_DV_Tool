@@ -34,6 +34,8 @@ VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.cs
 EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM = os.path.join("app", "static", "data", "eeg_cross_power_normalized.csv")
 EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower.csv")
 EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower_no-end-trim.csv")
+EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV.csv")
+
 
 EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_POWER_NORM_dB = os.path.join("app", "static", "data", "eeg_cross_power_normalized_dB.csv")
 
@@ -44,21 +46,38 @@ CLIP_STD = 2 # For Option 2 of Z-normalization method
 # we should extract this from the database or a config file - need to be revised later
 participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41]
 
+# stimuli = {
+#     0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
+#     1: {"id": 1, "label": "Zoom", "color": "#3cb44b"},
+#     2: {"id": 2, "label": "Pointing", "color": "#ffe119"},
+#     3: {"id": 3, "label": "Highlighting", "color": "#0082c8"},
+#     4: {"id": 4, "label": "Gradual Text", "color": "#f58231"},
+#     5: {"id": 5, "label": "Gradual appearance", "color": "#911eb4"},
+#     6: {"id": 6, "label": "Camera Angle", "color": "#46f0f0"},
+#     7: {"id": 7, "label": "Animation", "color": "#f032e6"},
+#     8: {"id": 8, "label": "Map", "color": "#d2f53c"},
+#     9: {"id": 9, "label": "Area", "color": "#fabebe"},
+#     10: {"id": 10, "label": "Data Visualization", "color": "#008080"},
+#     # 10: {"id": 10, "label": "Pictograph", "color": "#008080"},
+#     11: {"id": 11, "label": "Size Change", "color": "#e6beff"}, # All elements = 12
+#     13: {"id": 13, "label": "Abrupt Transition", "color": "#77ef77"}, # Refresh Transition (Hard cuts to a person/graphic from a graphic/person)
+#     14: {"id": 14, "label": "Gradual Transition", "color": "#006400"},
+#     # 15: {"id": 15, "label": "Data Visualization", "color": "#a4c1c3ff"}  
+# }
+
 stimuli = {
-    0: {"id": 0, "label": "Sound effect", "color": "#e6194b"},
-    1: {"id": 1, "label": "Zoom", "color": "#3cb44b"},
-    2: {"id": 2, "label": "Pointing", "color": "#ffe119"},
-    3: {"id": 3, "label": "Highlighting", "color": "#0082c8"},
-    4: {"id": 4, "label": "Gradual Text", "color": "#f58231"},
-    5: {"id": 5, "label": "Gradual appearance", "color": "#911eb4"},
-    6: {"id": 6, "label": "Camera Angle", "color": "#46f0f0"},
-    7: {"id": 7, "label": "Animation", "color": "#f032e6"},
-    8: {"id": 8, "label": "Map", "color": "#d2f53c"},
-    9: {"id": 9, "label": "Area", "color": "#fabebe"},
-    10: {"id": 10, "label": "Pictograph", "color": "#008080"},
-    11: {"id": 11, "label": "Size Change", "color": "#e6beff"},
-    13: {"id": 13, "label": "Human-Appearing Transition", "color": "#77ef77"},
-    14: {"id": 14, "label": "Graphic-Appearing Transition", "color": "#006400"}
+    0: {"id": 0, "label": "Sound effect", "abbrev": "SE", "color": "#C2CDFF"},
+    1: {"id": 1, "label": "Zoom", "abbrev": "ZM", "color": "#FFF3C2"},
+    2: {"id": 2, "label": "Pointing", "abbrev": "PT", "color": "#D9F4CD"},
+    3: {"id": 3, "label": "Highlighting", "abbrev": "HL", "color": "#C7FAE9"},
+    4: {"id": 4, "label": "Gradual Text", "abbrev": "GT", "color": "#FFC2E8"},
+    5: {"id": 5, "label": "Gradual appearance", "abbrev": "GA", "color": "#EBD5FF"},
+    6: {"id": 6, "label": "Camera Angle", "abbrev": "CA", "color": "#A9CEFF"},
+    7: {"id": 7, "label": "Animation", "abbrev": "AN", "color": "#FFADAD"},
+    10: {"id": 10, "label": "Data Visualization", "abbrev": "DVIS", "color": "#FFD699"},
+    11: {"id": 11, "label": "Size Change", "abbrev": "SC", "color": "#DBD5D5"},
+    13: {"id": 13, "label": "Abrupt Transition", "abbrev": "ATR", "color": "#FFB88B"},
+    14: {"id": 14, "label": "Gradual Transition", "abbrev": "GTR", "color": "#C5A8FF"},
 }
 
 # Helper functions
@@ -160,7 +179,7 @@ def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "al
     """
 
     # Load CSV
-    df = pd.read_csv(EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM) #  Options present above
+    df = pd.read_csv(EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS) #  Options present above
     # Convert stringified lists back into Python lists
     df['engagement'] = df['engagement'].apply(to_list)
     df['attention']  = df['attention'].apply(to_list)

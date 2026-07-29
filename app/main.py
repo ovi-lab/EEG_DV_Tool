@@ -1,45 +1,60 @@
-from fastapi import FastAPI, Request, Query
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import JSONResponse
+"""FastAPI backend for the EEG Data Video (EEGDV) Analysis Tool.
 
-import pandas as pd
-import numpy as np
-from typing import Union
+Serves the video player UI and exposes JSON APIs for EEG engagement/attention
+time series, aligned and averaged across participants, with optional
+per-participant normalization.
+"""
+import logging
 import os
 
+import numpy as np
+import pandas as pd
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+logger = logging.getLogger("eegdv")
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
-origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-base_dir = os.path.dirname(__file__)
-static_path = os.path.join(base_dir, "static")
-app.mount("/static", StaticFiles(directory=static_path), name="static")
+BASE_DIR = os.path.dirname(__file__)
+STATIC_PATH = os.path.join(BASE_DIR, "static")
+app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
+# --- Data file paths ---
 VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
 VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
 
-EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower_no-end-trim.csv") # Only mDVs
-EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS = os.path.join("app", "static", "data", "eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV.csv")
+# Precomputed EEG engagement/attention series: cross-baseline-subtracted,
+# power-normalized, using a video-specific baseline, with no end-trim.
+# Covers both mDVs and long DVs (mDV+LDV).
+EEG_DATA_CSV_PATH = os.path.join(
+    "app", "static", "data", "eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV.csv"
+) # EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS
 
-CLIP_STD = 2 # For Option 2 of Z-normalization method
+# --- Normalization config ---
+# Method used to rescale each participant's series onto a comparable range
+# before averaging across participants. See `_normalize_participant_values`.
+NORMALIZATION_METHOD = "clip_zscore"  # one of: zscore, robust_zscore, clip_zscore, clip_only
+CLIP_STD = 2  # outlier clipping threshold, in standard deviations (clip_zscore / clip_only)
 
-# we should extract this from the database or a config file - need to be revised later
-participants = [105, 107, 2, 7, 14, 15, 16, 17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41]
+# TODO: extract from a database or config file once participant lists grow further.
+PARTICIPANTS = [105, 107, 2, 7, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+                28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]
 
-stimuli = {
+STIMULI = {
     0: {"id": 0, "label": "Sound effect", "abbrev": "SE", "color": "#C2CDFF"},
     1: {"id": 1, "label": "Zoom", "abbrev": "ZM", "color": "#FFF3C2"},
     2: {"id": 2, "label": "Pointing", "abbrev": "PT", "color": "#D9F4CD"},
@@ -54,403 +69,323 @@ stimuli = {
     14: {"id": 14, "label": "Gradual Transition", "abbrev": "GTR", "color": "#C5A8FF"},
 }
 
-# Helper functions
-def smooth_signal(signal, window_len=3):
-    """Smooth signal while handling NaN values properly"""
-    if len(signal) == 0:
-        return signal
-    
-    # Create a copy to avoid modifying the original
-    smoothed = np.copy(signal)
-    
-    for i in range(len(signal)):
-        start_idx = max(0, i - window_len // 2)
-        end_idx = min(len(signal), i + window_len // 2 + 1)
-        window = signal[start_idx:end_idx]
-        
-        # Calculate mean ignoring NaN values
-        valid_values = window[~np.isnan(window)]
-        if len(valid_values) > 0:
-            smoothed[i] = np.mean(valid_values)
-        else:
-            smoothed[i] = np.nan
-    
-    return smoothed
 
-def to_list(x):
-    if isinstance(x, str):
-        try:
-            return eval(x, {"nan": np.nan, "np": np})
-        except:
-            return [np.nan]
-    return x
+# ---------------------------------------------------------------------------
+# Data helpers
+# ---------------------------------------------------------------------------
+def to_list(value):
+    """Parse a stringified Python list (e.g. "[1.0, nan, 2.0]") back into a list.
 
-def nanmean_along_axis(data, axis=0):
-    """Calculate mean along axis ignoring NaN values"""
-    return np.nanmean(data, axis=axis)
-
-def align_and_average_with_nan(participant_data):
+    Returns the value unchanged if it isn't a string, and `[nan]` if parsing fails.
     """
-    Align participant data to the same length and compute average ignoring NaN values.
-    
+    if not isinstance(value, str):
+        return value
+    try:
+        # Restricted eval: only "nan"/"np" are exposed, no builtins.
+        return eval(value, {"__builtins__": {}, "nan": np.nan, "np": np})
+    except Exception:
+        return [np.nan]
+
+
+def align_and_average_with_nan(participant_series):
+    """Trim a list of per-participant arrays to a common length and average
+    across participants, ignoring NaNs.
+
     Parameters
     ----------
-    participant_data : list of np.ndarray
-        List of participant time series data, potentially with different lengths and NaN values.
-    
+    participant_series : list of np.ndarray
+        Per-participant time series, potentially of different lengths and
+        containing NaNs.
+
     Returns
     -------
     np.ndarray
-        Group-level average with NaN handling.
+        Group-level average time series (empty array if input is empty).
     """
-    if not participant_data:
+    if not participant_series:
         return np.array([])
-    
-    # Find the minimum length for alignment
-    min_len = min(len(arr) for arr in participant_data)
-    
-    # Trim all arrays to the same length
-    trimmed_data = []
-    for arr in participant_data:
-        trimmed = arr[:min_len]
-        trimmed_data.append(trimmed)
-    
-    # Stack into 2D array (participants x time)
-    stacked = np.array(trimmed_data)
-    
-    # Calculate mean across participants (axis=0) ignoring NaN values
-    group_average = np.nanmean(stacked, axis=0)
-    
-    return group_average
 
-# Reads indices, Normalizes using min max OR zscore to make sure all indices are in the same range before across PPs
-def get_eeg_summary(video_id: int, participant_id: list | int, region: str = "all",
-                    index: str = "engagement", normalize: str = "false"):
+    min_len = min(len(series) for series in participant_series)
+    trimmed = np.array([series[:min_len] for series in participant_series])
+    return np.nanmean(trimmed, axis=0)
+
+
+def _normalize_participant_values(values, method):
+    """Rescale a single participant's series using `method`, ignoring NaNs
+    and preserving their positions.
+
+    Methods
+    -------
+    zscore        : standard (mean, std) z-normalization.
+    robust_zscore : z-normalization using median and IQR instead of mean/std,
+                    more robust to outliers.
+    clip_zscore   : clip outliers to +/-CLIP_STD std devs, then z-normalize
+                    the clipped values. (Current default.)
+    clip_only     : clip outliers to +/-CLIP_STD std devs without normalizing.
+
+    Returns the original array unchanged if there are no valid values, or if
+    the spread (std/IQR) is zero.
     """
-    Summarizes EEG indices (engagement or attention) for given video(s), participant(s), and region(s),
-    with optional normalization per participant. Reads from precomputed eeg.csv.
-    Now handles NaN values properly during averaging.
+    valid_mask = ~np.isnan(values)
+    if not np.any(valid_mask):
+        return values
+    valid = values[valid_mask]
+
+    if method == "zscore":
+        mean, std = np.mean(valid), np.std(valid)
+        if std <= 0:
+            return values
+        out = np.full_like(values, np.nan)
+        out[valid_mask] = (valid - mean) / std
+        return out
+
+    if method == "robust_zscore":
+        from scipy.stats import iqr as scipy_iqr
+
+        median, spread = np.median(valid), scipy_iqr(valid)
+        if spread <= 0:
+            return values
+        out = np.full_like(values, np.nan)
+        out[valid_mask] = (valid - median) / spread
+        return out
+
+    if method == "clip_zscore":
+        mean, std = np.mean(valid), np.std(valid)
+        if std <= 0:
+            return values
+        clipped = np.clip(valid, mean - CLIP_STD * std, mean + CLIP_STD * std)
+        clipped_mean, clipped_std = np.mean(clipped), np.std(clipped)
+        if clipped_std <= 0:
+            return values
+        out = np.full_like(values, np.nan)
+        out[valid_mask] = (clipped - clipped_mean) / clipped_std
+        return out
+
+    if method == "clip_only":
+        mean, std = np.mean(valid), np.std(valid)
+        if std <= 0:
+            return values
+        out = np.full_like(values, np.nan)
+        out[valid_mask] = np.clip(valid, mean - CLIP_STD * std, mean + CLIP_STD * std)
+        return out
+
+    raise ValueError(f"Unknown normalization method: {method!r}")
+
+
+EEG_INDICES = ("engagement", "attention")
+
+
+def get_eeg_series(video_id: int, participant_id: list | int, region: str = "all",
+                    normalize: str = "false"):
+    """Summarize engagement AND attention across participant(s) for one video
+    and region in a single pass, optionally normalizing each participant's
+    series before averaging. Reads from the precomputed EEG CSV.
 
     Parameters
     ----------
     video_id : int
-        One of the videos: 0, 1, 2, 3 (corresponding to v3–v6).
-    participant_id : list[int] or int
-        Either a single participant ID or a list of participants.
-        The list is in variable <participants> above which should be updated with new data
+        Video identifier.
+    participant_id : int or list[int]
+        A single participant ID, or a list of them (see `PARTICIPANTS`).
     region : str
-        Brain region: 'all', 'frontal', 'frontocentral', 'parietal', 'occipital', 'other'.
-        'all' means region = "all" as precomputed in the CSV.
-    index : str
-        'engagement' or 'attention'.
-    normalize : None | 'minmax' | 'zscore'
-        Whether to normalize per participant before averaging.
+        Brain region: 'all', 'frontal', 'frontocentral', 'parietal',
+        'occipital', 'other'. 'all' matches the precomputed "all" rows.
+    normalize : str
+        'true' to normalize each participant's series (via
+        `NORMALIZATION_METHOD`) before averaging; anything else skips it.
 
     Returns
     -------
-    np.ndarray
-        Group-level average index time series, index-aligned across participants with NaN handling.
+    dict[str, np.ndarray]
+        {"engagement": ..., "attention": ...} group-level average time
+        series, aligned across participants with NaN handling.
     """
+    print(f"[get_eeg_series] video={video_id} region={region} "
+          f"participants={participant_id} normalize={normalize}")
 
-    # Load CSV
-    df = pd.read_csv(EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS) #  Options present above
-    # Convert stringified lists back into Python lists
-    df['engagement'] = df['engagement'].apply(to_list)
-    df['attention']  = df['attention'].apply(to_list)
+    df = pd.read_csv(EEG_DATA_CSV_PATH)
+    for idx in EEG_INDICES:
+        df[idx] = df[idx].apply(to_list)
 
-    # Filter by video
-    df = df[df['video'] == video_id]
-
-    # Filter by participant(s)
+    df = df[df["video"] == video_id]
     if isinstance(participant_id, int):
-        df = df[df['participant'] == participant_id]
+        df = df[df["participant"] == participant_id]
     else:
-        df = df[df['participant'].isin(participant_id)]
-
-    # Filter by region
-    df = df[df['region'].str.lower() == region.lower()]
+        df = df[df["participant"].isin(participant_id)]
+    df = df[df["region"].str.lower() == region.lower()]
 
     if df.empty:
         raise ValueError("No data found for given parameters.")
 
-    # --- Per participant processing ---
-    participant_data = []
-    NORM = 2 # [0: Normal z-norm, 1: Robust using median and IQR, 2: Clip outliers]
-    if NORM == 0:
-        for pid, group in df.groupby('participant'):
-            # Each row is already region-averaged → just take it
-            vals = group[index].tolist()[0]  # only 1 row per participant per region
-            vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
+    print(f"[get_eeg_series] {df['participant'].nunique()} participant row(s) matched")
 
-            # Optional normalization - only on non-NaN values
+    participant_series = {idx: [] for idx in EEG_INDICES}
+    for pid, group in df.groupby("participant"):
+        # Each row is already region-averaged, so there's exactly one row
+        # per participant per region.
+        lengths = []
+        for idx in EEG_INDICES:
+            vals = np.array(group[idx].tolist()[0], dtype=float)
             if normalize == "true":
-                # Only normalize if we have valid (non-NaN) values
-                valid_mask = ~np.isnan(vals)
-                if np.sum(valid_mask) > 0:  # Check if we have any valid values
-                    valid_values = vals[valid_mask]
-                    mean_val, std_val = np.mean(valid_values), np.std(valid_values)
-                    if std_val > 0:
-                        # Create normalized array preserving NaN positions
-                        normalized_vals = np.full_like(vals, np.nan)
-                        normalized_vals[valid_mask] = (valid_values - mean_val) / std_val
-                        np.set_printoptions(precision=4, suppress=True)
-                        # print("raw values", vals)
-                        vals = normalized_vals
-                        # print("normalized values", vals)
+                vals = _normalize_participant_values(vals, NORMALIZATION_METHOD)
+            participant_series[idx].append(vals)
+            lengths.append(f"{idx}={len(vals)}")
+        print(f"[get_eeg_series]   participant={pid} {' '.join(lengths)}")
 
-            # Smooth signal while preserving NaN values
-            # vals = smooth_signal(vals)
-            participant_data.append(vals)
+    result = {idx: align_and_average_with_nan(participant_series[idx]) for idx in EEG_INDICES}
+    print(f"[get_eeg_series] group average length={len(result['engagement'])}")
+    return result
 
-    elif NORM == 1:
-        for pid, group in df.groupby('participant'):
-            # Each row is already region-averaged → just take it
-            vals = group[index].tolist()[0]  # only 1 row per participant per region
-            vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
-
-            # Optional normalization - only on non-NaN values
-            if normalize == "true":
-                # Only normalize if we have valid (non-NaN) values
-                valid_mask = ~np.isnan(vals)
-                if np.sum(valid_mask) > 0:  # Check if we have any valid values
-                    valid_values = vals[valid_mask]
-                    
-                    # --- ROBUST Z-NORM (Option 1: Median + IQR) ---
-                    from scipy.stats import iqr
-                    
-                    median_val = np.median(valid_values)
-                    iqr_val = iqr(valid_values)
-                    
-                    if iqr_val > 0:
-                        # Robust z-norm: use median and IQR instead of mean and std
-                        normalized_vals = np.full_like(vals, np.nan)
-                        normalized_vals[valid_mask] = (valid_values - median_val) / iqr_val
-                        
-                        np.set_printoptions(precision=4, suppress=True)
-                        # print("raw values", vals)
-                        # print(f"  median: {median_val:.4f}, IQR: {iqr_val:.4f}")
-                        vals = normalized_vals
-                        # print("normalized values", vals)
-
-            # Smooth signal while preserving NaN values
-            # vals = smooth_signal(vals)
-            participant_data.append(vals)
-
-    elif NORM == 2: # Clip outliers
-        for pid, group in df.groupby('participant'):
-            # Each row is already region-averaged → just take it
-            vals = group[index].tolist()[0]  # only 1 row per participant per region
-            vals = np.array(vals, dtype=float)  # Ensure float type for NaN handling
-
-            # Optional normalization - only on non-NaN values
-            if normalize == "true":
-                # Only normalize if we have valid (non-NaN) values
-                valid_mask = ~np.isnan(vals)
-                if np.sum(valid_mask) > 0:  # Check if we have any valid values
-                    valid_values = vals[valid_mask]
-                    ZNORM = 1 # [1 = Z-NORMALIZE, 0 = ONLY CLIP]
-                    if ZNORM == 1: 
-                        mean_val, std_val = np.mean(valid_values), np.std(valid_values)
-                        if std_val > 0:
-                            # --- CLIP OUTLIERS BEFORE Z-NORM (Option 2) ---
-                            clip_lower = mean_val - CLIP_STD * std_val
-                            clip_upper = mean_val + CLIP_STD * std_val
-                            clipped_values = np.clip(valid_values, clip_lower, clip_upper)
-                            
-                            # Recalculate mean and std AFTER clipping
-                            mean_clipped = np.mean(clipped_values)
-                            std_clipped = np.std(clipped_values)
-                            
-                            # Z-norm on clipped values
-                            normalized_vals = np.full_like(vals, np.nan)
-                            if std_clipped > 0:
-                                normalized_vals[valid_mask] = (clipped_values - mean_clipped) / std_clipped
-                            
-                            np.set_printoptions(precision=4, suppress=True)
-                            # print("raw values", vals)
-                            # print("clipped values", clipped_values)
-                            vals = normalized_vals
-                            # print("normalized values", vals)
-                    elif ZNORM == 0:
-                        mean_val = np.mean(valid_values)
-                        std_val = np.std(valid_values)
-                        
-                        if std_val > 0:
-                            clip_lower = mean_val - CLIP_STD * std_val
-                            clip_upper = mean_val + CLIP_STD * std_val
-                            
-                            clipped_vals = np.full_like(vals, np.nan)
-                            clipped_vals[valid_mask] = np.clip(valid_values, clip_lower, clip_upper)
-                            
-                            np.set_printoptions(precision=4, suppress=True)
-                            # print("raw values", vals)
-                            # print(f"  clip range: [{clip_lower:.4f}, {clip_upper:.4f}]")
-                            vals = clipped_vals
-                            # print("clipped values", vals)
-
-            # Smooth signal while preserving NaN values
-            # vals = smooth_signal(vals)
-            participant_data.append(vals)
-
-    # --- Index alignment & group average with NaN handling ---
-    group_average = align_and_average_with_nan(participant_data)
-    
-    return group_average
-
-# FastAPI routes
-# Index page - shows all videos
-def home():
-    if os.path.exists(VIDEO_CSV_PATH):
-        df = pd.read_csv(VIDEO_CSV_PATH)
-        return df.to_dict(orient='records')
-    else:
-        return []
-
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    videos = home()
-    return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
-
-def get_video_by_video_id(video_id: str):
-    df = pd.read_csv(VIDEO_CSV_PATH)
-    video = df[df["id"] == int(video_id)].to_dict(orient="records")
-    if not video:
-        return HTMLResponse("Video not found", status_code=404)
-    return video[0]
-
-def get_stimuli_by_video_id(video_id: str):
-    video_stimuli = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
-    stimuli_list = video_stimuli[video_stimuli["video_id"] == int(video_id)].to_dict(orient="records")
-    unique_stimuli_ids = set(item["stimulus_id"] for item in stimuli_list)
-    vide_stim_info = [stimuli[s] for s in unique_stimuli_ids]
-    return stimuli_list, vide_stim_info
 
 def clean_data_for_json(data):
-    """Clean data by replacing NaN and infinity values for JSON serialization"""
+    """Recursively replace NaN/Inf with None so data can be safely JSON-serialized."""
     if isinstance(data, list):
         return [clean_data_for_json(item) for item in data]
-    elif isinstance(data, np.ndarray):
-        # Replace NaN and inf with None (which becomes null in JSON)
-        cleaned = np.where(np.isfinite(data), data, None)
-        return cleaned.tolist()
-    elif isinstance(data, (float, np.float64, np.float32)):
-        if np.isnan(data) or np.isinf(data):
-            return None
-        return float(data)
-    else:
-        return data
+    if isinstance(data, np.ndarray):
+        return np.where(np.isfinite(data), data, None).tolist()
+    if isinstance(data, (float, np.float64, np.float32)):
+        return None if (np.isnan(data) or np.isinf(data)) else float(data)
+    return data
+
+
+def get_video_by_video_id(video_id: str):
+    """Look up a single video's metadata row by ID."""
+    df = pd.read_csv(VIDEO_CSV_PATH)
+    matches = df[df["id"] == int(video_id)].to_dict(orient="records")
+    if not matches:
+        return HTMLResponse("Video not found", status_code=404)
+    return matches[0]
+
+
+def get_stimuli_by_video_id(video_id: str):
+    """Return the raw stimuli-event rows and the distinct stimulus type
+    definitions (label/abbrev/color) that occur in a given video."""
+    video_stimuli = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
+    stimuli_list = video_stimuli[video_stimuli["video_id"] == int(video_id)].to_dict(orient="records")
+    unique_stimulus_ids = {item["stimulus_id"] for item in stimuli_list}
+    stimulus_types = [STIMULI[s] for s in unique_stimulus_ids]
+    return stimuli_list, stimulus_types
+
 
 def get_eeg_data_by_video_id(video_id: str, normalize: str | None = None):
-    engagement_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="engagement", normalize=normalize)
-    engagement_list = clean_data_for_json(engagement_data)
-    attention_data = get_eeg_summary(video_id=int(video_id), participant_id=participants, region="all", index="attention", normalize=normalize)
-    attention_list = clean_data_for_json(attention_data)
-    return engagement_list, attention_list
+    """Fetch group-averaged engagement and attention series (all participants,
+    all regions) for a video, ready for JSON serialization."""
+    series = get_eeg_series(int(video_id), PARTICIPANTS, region="all", normalize=normalize)
+    return clean_data_for_json(series["engagement"]), clean_data_for_json(series["attention"])
+
+
+def _build_eeg_result_entry(video, participant_spec, participant_label, region, normalize):
+    """Compute engagement/attention series for one participant-spec/region
+    combination, in the shape expected by the /api/eeg response."""
+    series = get_eeg_series(video, participant_spec, region, normalize=normalize)
+    return {
+        "engagement": clean_data_for_json(series["engagement"]),
+        "attention": clean_data_for_json(series["attention"]),
+        "region": region,
+        "participant": participant_label,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    """Index page listing all videos."""
+    videos = pd.read_csv(VIDEO_CSV_PATH).to_dict(orient="records") if os.path.exists(VIDEO_CSV_PATH) else []
+    print(f"[/ read_root] listing {len(videos)} video(s)")
+    return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
+
 
 @app.get("/player", response_class=HTMLResponse)
 async def player(request: Request, id: str, normalize: bool = Query(False)):
+    """Video player page with synchronized EEG engagement/attention overlays
+    and stimulus annotations."""
+    print(f"[/player] video_id={id} normalize={normalize}")
     video = get_video_by_video_id(id)
-    stimuli_list, vide_stim_info = get_stimuli_by_video_id(id)
-    eng_list, atn_list = get_eeg_data_by_video_id(id, normalize)
-    print("Engagement data length:", len(eng_list))
-    print("Attention data length:", len(atn_list))
-    return templates.TemplateResponse("player.html", 
-                                        {"request": request, 
-                                        "video": video, 
-                                        "eng_data":  eng_list, 
-                                        "atn_data": atn_list,
-                                        "stimuli_data": stimuli_list, 
-                                        "stimuli_info": vide_stim_info,
-                                        "participants": participants})
+    stimuli_list, stimulus_types = get_stimuli_by_video_id(id)
+    print(f"[/player] {len(stimuli_list)} stimulus event(s), {len(stimulus_types)} stimulus type(s)")
+    eng_data, atn_data = get_eeg_data_by_video_id(id, str(normalize).lower())
+    print(f"[/player] engagement length={len(eng_data)} attention length={len(atn_data)}")
+    logger.info("Loaded player data for video %s: engagement=%d, attention=%d",
+                id, len(eng_data), len(atn_data))
+    return templates.TemplateResponse("player.html", {
+        "request": request,
+        "video": video,
+        "eng_data": eng_data,
+        "atn_data": atn_data,
+        "stimuli_data": stimuli_list,
+        "stimuli_info": stimulus_types,
+        "participants": PARTICIPANTS,
+    })
+
 
 @app.get("/api/stimuli")
 def get_video_stimuli(video_id: int):
-    if os.path.exists(VIDEO_STIMULI_CSV_PATH):
-        stimuli_df = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
-        try:
-            filtered = stimuli_df[stimuli_df["video_id"] == video_id]
-            return JSONResponse(content=filtered.to_dict(orient="records"))
-        except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
-    else:
+    """Raw stimulus-event rows for a video."""
+    print(f"[/api/stimuli] video_id={video_id}")
+    if not os.path.exists(VIDEO_STIMULI_CSV_PATH):
         return []
-    
+    try:
+        stimuli_df = pd.read_csv(VIDEO_STIMULI_CSV_PATH)
+        filtered = stimuli_df[stimuli_df["video_id"] == video_id]
+        print(f"[/api/stimuli] {len(filtered)} row(s) found")
+        return JSONResponse(content=filtered.to_dict(orient="records"))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/eeg")
 def get_filtered_eeg_api(
     video: int,
     participant: list[int] = Query(None),
     region: list[str] = Query(None),
-    normalize: str = Query('false'),
-    merge: str = Query('false')
+    normalize: str = Query("false"),
+    merge: str = Query("false"),
 ):
+    """Group-averaged (or per-participant) EEG engagement/attention series
+    for a video, optionally split by region and/or normalized.
+
+    - merge='true': averages across all requested participants into one series.
+    - merge='false' (default): returns one series per participant.
+    - region: if provided, computes one entry per region; otherwise 'all'.
+    """
     try:
-        if participant is None:
-            participant = participants
-        results = {}
-        if merge == 'true':
-            print("Merging all participants")
-            if region:
-                for r in region:
-                    engagement = get_eeg_summary(video, participant, r, index="engagement", normalize=normalize)
-                    attention = get_eeg_summary(video, participant, r, index="attention", normalize=normalize)
-                    results[f"all_{r}"] = {
-                        "engagement": clean_data_for_json(engagement),
-                        "attention": clean_data_for_json(attention),
-                        "region": r,
-                        "participant": "all"
-                    }
-                    print(f"Computed all participants for region {r}")
-            else:
-                engagement = get_eeg_summary(video, participant, "all", index="engagement", normalize=normalize)
-                attention = get_eeg_summary(video, participant, "all", index="attention", normalize=normalize)
-                results["all"] = {
-                    "engagement": clean_data_for_json(engagement),
-                    "attention": clean_data_for_json(attention),
-                    "region": "all",
-                    "participant": "all"
-                }
-                print("Computed all participants for all regions")
+        participants = participant if participant is not None else PARTICIPANTS
+        regions = region  # None means "all regions" (single "all" entry)
+
+        print(f"[/api/eeg] video={video} merge={merge} normalize={normalize} "
+              f"participants={participants} regions={regions or ['all']}")
+
+        if merge == "true":
+            print(f"[/api/eeg] merging across {len(participants)} participant(s)")
+            participant_groups = [(participants, "all")]
         else:
-            print("Processing individual participants")
-            for p in participant:
-                if region:
-                    for r in region:
-                        engagement = get_eeg_summary(video, p, r, index="engagement", normalize=normalize)
-                        attention = get_eeg_summary(video, p, r, index="attention", normalize=normalize)
-                        # region R for participant P
-                        results[f"{p}_{r}"] = {
-                            "engagement": clean_data_for_json(engagement),
-                            "attention": clean_data_for_json(attention),
-                            "region": r,
-                            "participant": p
-                        }
-                        print(f"Computed participant {p} for region {r}")
-                else:
-                    engagement = get_eeg_summary(video, p, "all", index="engagement", normalize=normalize)
-                    attention = get_eeg_summary(video, p, "all", index="attention", normalize=normalize)
-                    # all regions for participant P
-                    results[f"{p}"] = {
-                        "engagement": clean_data_for_json(engagement),
-                        "attention": clean_data_for_json(attention),
-                        "region": "all",
-                        "participant": p
-                    }
-                    print(f"Computed participant {p} for all regions")
-        
-        # Get a sample length from the first result for metadata
-        sample_length = 0
-        if results:
-            first_key = next(iter(results.keys()))
-            sample_length = len(results[first_key]["engagement"])
-        
+            print(f"[/api/eeg] computing per-participant results for {len(participants)} participant(s)")
+            participant_groups = [(p, p) for p in participants]
+
+        results = {}
+        for participant_spec, label in participant_groups:
+            key_prefix = str(label)
+            if regions:
+                for r in regions:
+                    print(f"[/api/eeg] computing entry '{key_prefix}_{r}'")
+                    results[f"{key_prefix}_{r}"] = _build_eeg_result_entry(
+                        video, participant_spec, label, r, normalize)
+            else:
+                print(f"[/api/eeg] computing entry '{key_prefix}' (region=all)")
+                results[key_prefix] = _build_eeg_result_entry(
+                    video, participant_spec, label, "all", normalize)
+
+        sample_length = len(next(iter(results.values()))["engagement"]) if results else 0
+        print(f"[/api/eeg] done: {len(results)} entrie(s), sample length={sample_length}")
         results["meta"] = {
             "video": video,
-            "participants": participant,
-            "regions": region if region else ["all"],
+            "participants": participants,
+            "regions": regions if regions else ["all"],
             "normalize": normalize,
-            "length": sample_length
+            "length": sample_length,
         }
-        
         return JSONResponse(content=results)
     except ValueError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})

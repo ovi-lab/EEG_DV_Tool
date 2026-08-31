@@ -41,7 +41,7 @@ VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.cs
 # power-normalized, using a video-specific baseline, with no end-trim.
 # Covers both mDVs and long DVs (mDV+LDV).
 EEG_DATA_CSV_PATH = os.path.join(
-    "app", "static", "data", "eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV.csv"
+    "app", "static", "data", "video_grouped_indices_REGIONS_CROSS_WELCH_RATIO_ALL_DVs.csv" # video_grouped_indices_REGIONS_CROSS_WELCH_RATIO_ALL_DVs eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV
 ) # EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS
 
 # --- Normalization config ---

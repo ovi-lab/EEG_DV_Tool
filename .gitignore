@@ -25,3 +25,6 @@ __pycache__/
 
 # Private data files (path configured via .env DATA_DIR)
 app/static/data/
+
+# Old main file
+app/main_old.py

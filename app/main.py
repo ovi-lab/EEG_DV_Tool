@@ -9,11 +9,14 @@ import os
 
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+load_dotenv()
 
 logger = logging.getLogger("eegdv")
 logging.basicConfig(level=logging.INFO)
@@ -30,18 +33,25 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(__file__)
 STATIC_PATH = os.path.join(BASE_DIR, "static")
+
+# DATA_DIR points at the (gitignored) folder holding participant data and
+# videos; configure it in .env (not committed). Mounted at /static/data
+# ahead of the general /static mount so it resolves correctly even if it
+# lives outside app/static.
+DATA_DIR = os.getenv("DATA_DIR", os.path.join("app", "static", "data"))
+app.mount("/static/data", StaticFiles(directory=DATA_DIR), name="data")
 app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 # --- Data file paths ---
-VIDEO_CSV_PATH = os.path.join("app", "static", "data", "videos.csv")
-VIDEO_STIMULI_CSV_PATH = os.path.join("app", "static", "data", "video_stimuli.csv")
+VIDEO_CSV_PATH = os.path.join(DATA_DIR, "videos.csv")
+VIDEO_STIMULI_CSV_PATH = os.path.join(DATA_DIR, "video_stimuli.csv")
 
 # Precomputed EEG engagement/attention series: cross-baseline-subtracted,
 # power-normalized, using a video-specific baseline, with no end-trim.
 # Covers both mDVs and long DVs (mDV+LDV).
 EEG_DATA_CSV_PATH = os.path.join(
-    "app", "static", "data", "video_grouped_indices_REGIONS_CROSS_WELCH_RATIO_ALL_DVs.csv" # video_grouped_indices_REGIONS_CROSS_WELCH_RATIO_ALL_DVs eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV
+    DATA_DIR, "video_grouped_indices_REGIONS_CROSS_WELCH_RATIO_ALL_DVs.csv" # video_grouped_indices_REGIONS_CROSS_WELCH_RATIO_ALL_DVs eeg_cross_power_normalized_avgpower_no-end-trim - mDV+LDV
 ) # EEG_RAW_CROSS_BASELINE_SUBTRACTED_CSV_PATH_TRIMMED_AVG_POWER_NORM_VIDEO_SPECIFIC_BASELINE_NO_END_TRIM_ALL_DVS
 
 # --- Normalization config ---

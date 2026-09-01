@@ -3,3 +3,4 @@ uvicorn
 pandas
 aiofiles
 jinja2
+python-dotenv

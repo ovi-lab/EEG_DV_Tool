@@ -84,6 +84,7 @@
       return data.map(value => value === null ? NaN : value);
     }
 
+    const SHOW_ATTENTION = {{ show_attention | tojson }};
     const engagementData = cleanDataForChart({{ eng_data | tojson }});
     const attentionData = cleanDataForChart({{ atn_data | tojson }});
     const participantsData = {{ participants | tojson }};
@@ -286,7 +287,7 @@
           pointRadius: 0,
           tension: 0.3,
           spanGaps: false  // This will break the line at NaN values instead of interpolating
-        }, {
+        }, ...(SHOW_ATTENTION ? [{
           label: 'Attention',
           data: attentionData,
           borderColor: 'black',
@@ -294,7 +295,7 @@
           pointRadius: 0,
           tension: 0.3,
           spanGaps: false  // This will break the line at NaN values instead of interpolating
-        }]
+        }] : [])]
       },
       options: {
         responsive: true,
@@ -371,16 +372,18 @@
               spanGaps: false,
               hidden: true
             });
-            chart.data.datasets.push({
-              label: `Attention (all - ${region})`,
-              data: cleanDataForChart(fetchedData[`all_${region}`].attention),
-              borderColor: getRandomColor(),
-              borderWidth: 1,
-              pointRadius: 0,
-              tension: 0.3,
-              spanGaps: false,
-              hidden: true
-            });
+            if (SHOW_ATTENTION) {
+              chart.data.datasets.push({
+                label: `Attention (all - ${region})`,
+                data: cleanDataForChart(fetchedData[`all_${region}`].attention),
+                borderColor: getRandomColor(),
+                borderWidth: 1,
+                pointRadius: 0,
+                tension: 0.3,
+                spanGaps: false,
+                hidden: true
+              });
+            }
           }
         })
       }
@@ -398,16 +401,18 @@
                 spanGaps: false,
                 hidden: true
               });
-              chart.data.datasets.push({
-                label: `Attention (P${p} - ${region})`,
-                data: cleanDataForChart(fetchedData[`${p}_${region}`].attention),
-                borderColor: getRandomColor(),
-                borderWidth: 1,
-                pointRadius: 0,
-                tension: 0.3,
-                spanGaps: false,
-                hidden: true
-              });
+              if (SHOW_ATTENTION) {
+                chart.data.datasets.push({
+                  label: `Attention (P${p} - ${region})`,
+                  data: cleanDataForChart(fetchedData[`${p}_${region}`].attention),
+                  borderColor: getRandomColor(),
+                  borderWidth: 1,
+                  pointRadius: 0,
+                  tension: 0.3,
+                  spanGaps: false,
+                  hidden: true
+                });
+              }
             }
           });
         });
@@ -429,16 +434,18 @@
             spanGaps: false,
             hidden: true
           });
-          chart.data.datasets.push({
-            label: `Attention (all)`,
-            data: cleanDataForChart(fetchedData['all'].attention),
-            borderColor: getRandomColor(),
-            borderWidth: 1,
-            pointRadius: 0,
-            tension: 0.3,
-            spanGaps: false,
-            hidden: true
-          });
+          if (SHOW_ATTENTION) {
+            chart.data.datasets.push({
+              label: `Attention (all)`,
+              data: cleanDataForChart(fetchedData['all'].attention),
+              borderColor: getRandomColor(),
+              borderWidth: 1,
+              pointRadius: 0,
+              tension: 0.3,
+              spanGaps: false,
+              hidden: true
+            });
+          }
         }
       } else {
         console.log("Not merging, showing individual participants");
@@ -454,16 +461,18 @@
               spanGaps: false,
               hidden: true
             });
-            chart.data.datasets.push({
-              label: `Attention (P${p})`,
-              data: cleanDataForChart(fetchedData[`${p}`].attention),
-              borderColor: getRandomColor(),
-              borderWidth: 1,
-              pointRadius: 0,
-              tension: 0.3,
-              spanGaps: false,
-              hidden: true
-            });
+            if (SHOW_ATTENTION) {
+              chart.data.datasets.push({
+                label: `Attention (P${p})`,
+                data: cleanDataForChart(fetchedData[`${p}`].attention),
+                borderColor: getRandomColor(),
+                borderWidth: 1,
+                pointRadius: 0,
+                tension: 0.3,
+                spanGaps: false,
+                hidden: true
+              });
+            }
           }
         });
       }
@@ -510,12 +519,15 @@
         fetch(stimuliQuery).then(res => res.json())
       ])
         .then(([eegData, stimuliData]) => {
+          const baseDatasetCount = SHOW_ATTENTION ? 2 : 1;
           chart.data.labels = Array.from({ length: eegData.meta.length }, (_, i) => i);
-          chart.data.datasets = chart.data.datasets.slice(0, 2); // Reset to only engagement and attention
-          
+          chart.data.datasets = chart.data.datasets.slice(0, baseDatasetCount); // Reset to only base dataset(s)
+
           // Update the main datasets with cleaned data
           chart.data.datasets[0].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.engagement || []);
-          chart.data.datasets[1].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.attention || []);
+          if (SHOW_ATTENTION) {
+            chart.data.datasets[1].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.attention || []);
+          }
           
           if (regionParams) {
             updateChartWithRegions(participantParams, regionParams, merge, eegData);

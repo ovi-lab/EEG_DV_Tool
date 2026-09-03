@@ -60,6 +60,9 @@ EEG_DATA_CSV_PATH = os.path.join(
 NORMALIZATION_METHOD = "clip_zscore"  # one of: zscore, robust_zscore, clip_zscore, clip_only
 CLIP_STD = 2  # outlier clipping threshold, in standard deviations (clip_zscore / clip_only)
 
+# Set to False to hide the Attention index in the player UI (dev toggle).
+SHOW_ATTENTION = False
+
 # TODO: extract from a database or config file once participant lists grow further.
 PARTICIPANTS = [105, 107, 2, 7, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
                 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]
@@ -327,6 +330,7 @@ async def player(request: Request, id: str, normalize: bool = Query(False)):
         "stimuli_data": stimuli_list,
         "stimuli_info": stimulus_types,
         "participants": PARTICIPANTS,
+        "show_attention": SHOW_ATTENTION,
     })
 
 

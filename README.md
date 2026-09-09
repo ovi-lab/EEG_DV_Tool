@@ -8,7 +8,7 @@ A web-based tool for visualizing and analyzing EEG engagement and attention indi
 - Filter by participant, brain region, and index type (engagement / attention)
 - Toggle between individual participant data and averaged data
 - Optional z-score normalization and outlier clipping
-- DV element overlays showing when specific video elements occurred (zoom, animation, sound effects, etc.)
+- DV element overlays showing when specific video elements occurred (zooming, animation, sound effects, etc.)
 - Vertical sync line tracking video playback position on the chart
 
 ## Tech Stack

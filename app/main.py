@@ -69,7 +69,7 @@ PARTICIPANTS = [105, 107, 2, 7, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 
 
 STIMULI = {
     0: {"id": 0, "label": "Sound effect", "abbrev": "SE", "color": "#C2CDFF"},
-    1: {"id": 1, "label": "Zoom", "abbrev": "ZM", "color": "#FFF3C2"},
+    1: {"id": 1, "label": "Zooming", "abbrev": "ZM", "color": "#FFF3C2"},
     2: {"id": 2, "label": "Pointing", "abbrev": "PT", "color": "#D9F4CD"},
     3: {"id": 3, "label": "Highlighting", "abbrev": "HL", "color": "#C7FAE9"},
     4: {"id": 4, "label": "Gradual Text", "abbrev": "GT", "color": "#FFC2E8"},

@@ -73,6 +73,7 @@
         </div>
 
         <button id="applyFilters">Apply Filters</button>
+        <div id="filterMessage" style="font-size: 0.85em; color: #b00; min-height: 1.2em;"></div>
       </div>
     </div>
   </div>
@@ -115,7 +116,7 @@
     let currentVideoTime = 0;
     let syncInterval = null;
     let currentRegion = null;
-    let currentParticipant = null;
+    let currentParticipant = [];   // [] means "no explicit selection" => all participants
     let mergeSelected = false;
     let normalizeSelected = false;
 
@@ -140,25 +141,43 @@
       document.querySelector('.dropdown').classList.toggle('show');
     });
 
-    dropdown.addEventListener('change', e => {
-      if (e.target.value === 'all'){
-        if (e.target.checked) {
-          document.querySelectorAll('#participantDropdown input[type="checkbox"]').forEach(cb => {
-            cb.checked = true;
-          });
-        } else {
-          document.querySelectorAll('#participantDropdown input[type="checkbox"]').forEach(cb => {
-            cb.checked = false;
-          });
-        }
-        currentParticipant = null;
-        return;
+    const allParticipantsBox = () => dropdown.querySelector('input[value="all"]');
+    const individualBoxes = () =>
+      Array.from(dropdown.querySelectorAll('input[type="checkbox"]')).filter(cb => cb.value !== 'all');
+
+    // Only the individual boxes carry participant IDs; the "All" box is a
+    // control, so it must never end up in the ID list (parseInt('all') = NaN,
+    // which the API rejects with a 422).
+    function getSelectedParticipants() {
+      return individualBoxes()
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.value, 10))
+        .filter(n => !Number.isNaN(n));
+    }
+
+    function updateParticipantButtonText() {
+      const btn = document.getElementById('participantDropdownBtn');
+      const selected = currentParticipant;
+      let text;
+      if (selected.length === 0 || selected.length === individualBoxes().length) {
+        text = 'All Participants';
+      } else if (selected.length <= 3) {
+        text = selected.map(p => `P${p}`).join(', ');
       } else {
-        currentParticipant = [];
-        currentParticipant = Array.from(
-          document.querySelectorAll('#participantDropdown input[type="checkbox"]:checked')
-        ).map(el => parseInt(el.value));
+        text = `${selected.length} Participants`;
       }
+      btn.innerHTML = `${text} <span class="dropdown-icon">▼</span>`;
+    }
+
+    dropdown.addEventListener('change', e => {
+      if (e.target.value === 'all') {
+        individualBoxes().forEach(cb => { cb.checked = e.target.checked; });
+      } else {
+        // Keep the "All" box in sync so it never contradicts the individual ones.
+        allParticipantsBox().checked = individualBoxes().every(cb => cb.checked);
+      }
+      currentParticipant = getSelectedParticipants();
+      updateParticipantButtonText();
     });
 
     //Regions
@@ -280,7 +299,7 @@
       data: {
         labels: Array.from({ length: engagementData.length }, (_, i) => i),
         datasets: [{
-          label: 'Engagement',
+          label: 'Engagement (all)',
           data: engagementData,
           borderColor: 'brown',
           borderWidth: 1,
@@ -288,7 +307,7 @@
           tension: 0.3,
           spanGaps: false  // This will break the line at NaN values instead of interpolating
         }, ...(SHOW_ATTENTION ? [{
-          label: 'Attention',
+          label: 'Attention (all)',
           data: attentionData,
           borderColor: 'black',
           borderWidth: 1,
@@ -358,127 +377,48 @@
       updateSyncLine();
     });
 
-    function updateChartWithRegions(selectedParticipants, selectedRegions, merge, fetchedData) {
-      if (merge){
-        selectedRegions.forEach(region => {
-          if (fetchedData[`all_${region}`]) {
-            chart.data.datasets.push({
-              label: `Engagement (all - ${region})`,
-              data: cleanDataForChart(fetchedData[`all_${region}`].engagement),
-              borderColor: getRandomColor(),
-              borderWidth: 1,
-              pointRadius: 0,
-              tension: 0.3,
-              spanGaps: false,
-              hidden: true
-            });
-            if (SHOW_ATTENTION) {
-              chart.data.datasets.push({
-                label: `Attention (all - ${region})`,
-                data: cleanDataForChart(fetchedData[`all_${region}`].attention),
-                borderColor: getRandomColor(),
-                borderWidth: 1,
-                pointRadius: 0,
-                tension: 0.3,
-                spanGaps: false,
-                hidden: true
-              });
-            }
-          }
-        })
-      }
-      else {
-        selectedParticipants.forEach(p => {
-          selectedRegions.forEach(region => {
-            if (fetchedData[`${p}_${region}`]) {
-              chart.data.datasets.push({
-                label: `Engagement (P${p} - ${region})`,
-                data: cleanDataForChart(fetchedData[`${p}_${region}`].engagement),
-                borderColor: getRandomColor(),
-                borderWidth: 1,
-                pointRadius: 0,
-                tension: 0.3,
-                spanGaps: false,
-                hidden: true
-              });
-              if (SHOW_ATTENTION) {
-                chart.data.datasets.push({
-                  label: `Attention (P${p} - ${region})`,
-                  data: cleanDataForChart(fetchedData[`${p}_${region}`].attention),
-                  borderColor: getRandomColor(),
-                  borderWidth: 1,
-                  pointRadius: 0,
-                  tension: 0.3,
-                  spanGaps: false,
-                  hidden: true
-                });
-              }
-            }
-          });
+    function buildDatasetsFromResult(fetchedData, selectedParticipants) {
+      const datasets = [];
+      Object.keys(fetchedData).filter(k => k !== 'meta').forEach(key => {
+        const entry = fetchedData[key];
+        datasets.push({
+          label: formatDatasetLabel('Engagement', key, selectedParticipants),
+          data: cleanDataForChart(entry.engagement),
+          borderColor: getRandomColor(),
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3,
+          spanGaps: false
         });
-      }
-      chart.update();
-    }
-
-    function updateChartwithoutRegions (selectedParticipants, merge, fetchedData){
-      if (merge){
-        console.log("Merging all participants");
-        if (fetchedData['all']) {
-          chart.data.datasets.push({
-            label: `Engagement (all)`,
-            data: cleanDataForChart(fetchedData['all'].engagement),
+        if (SHOW_ATTENTION) {
+          datasets.push({
+            label: formatDatasetLabel('Attention', key, selectedParticipants),
+            data: cleanDataForChart(entry.attention),
             borderColor: getRandomColor(),
             borderWidth: 1,
             pointRadius: 0,
             tension: 0.3,
-            spanGaps: false,
-            hidden: true
+            spanGaps: false
           });
-          if (SHOW_ATTENTION) {
-            chart.data.datasets.push({
-              label: `Attention (all)`,
-              data: cleanDataForChart(fetchedData['all'].attention),
-              borderColor: getRandomColor(),
-              borderWidth: 1,
-              pointRadius: 0,
-              tension: 0.3,
-              spanGaps: false,
-              hidden: true
-            });
-          }
         }
-      } else {
-        console.log("Not merging, showing individual participants");
-        selectedParticipants.forEach(p => {
-          if (fetchedData[`${p}`]) {
-            chart.data.datasets.push({
-              label: `Engagement (P${p})`,
-              data: cleanDataForChart(fetchedData[`${p}`].engagement),
-              borderColor: getRandomColor(),
-              borderWidth: 1,
-              pointRadius: 0,
-              tension: 0.3,
-              spanGaps: false,
-              hidden: true
-            });
-            if (SHOW_ATTENTION) {
-              chart.data.datasets.push({
-                label: `Attention (P${p})`,
-                data: cleanDataForChart(fetchedData[`${p}`].attention),
-                borderColor: getRandomColor(),
-                borderWidth: 1,
-                pointRadius: 0,
-                tension: 0.3,
-                spanGaps: false,
-                hidden: true
-              });
-            }
-          }
-        });
-      }
-      chart.update();
+      });
+      return datasets;
     }
-    
+
+    // The API names a merged series 'all' regardless of how many participants
+    // went into it, so spell out the actual selection instead.
+    function mergedParticipantsLabel(selectedParticipants) {
+      const selected = selectedParticipants || [];
+      if (selected.length === 0 || selected.length === participantsData.length) return 'all';
+      return selected.map(p => `P${p}`).join(' + ');
+    }
+
+    function formatDatasetLabel(base, key, selectedParticipants) {
+      const [id, region] = key.split('_');
+      const idLabel = id === 'all' ? mergedParticipantsLabel(selectedParticipants) : `P${id}`;
+      return region ? `${base} (${idLabel} - ${region})` : `${base} (${idLabel})`;
+    }
+
     function getRandomColor() {
       var letters = '0123456789ABCDEF';
       var color = '#';
@@ -492,19 +432,31 @@
       const regionParams = currentRegion;
       const videoId = document.getElementById('videoId').value;
       const participantParams = currentParticipant;
-      const merge = mergeSelected;
       const normalize = normalizeSelected;
+
+      const filterMessage = document.getElementById('filterMessage');
+      filterMessage.textContent = '';
+
+      let merge = mergeSelected;
+      if (merge && participantParams.length === 1) {
+        // Averaging one participant with themselves is a no-op, and merging
+        // would relabel their series as 'all'. Keep the PPID instead.
+        merge = false;
+        filterMessage.textContent = 'Only one participant selected. Nothing to merge.';
+      } else if (!merge && participantParams.length === 0) {
+        // No explicit selection: show the group average rather than one line
+        // per participant.
+        merge = true;
+      }
 
       const selectedStimuli = Array.from(
         document.querySelectorAll('#stimuliCheckboxes input[type="checkbox"]:checked')
       ).map(cb => cb.value);
-     
+
       const queryParams = new URLSearchParams();
       queryParams.append('video', videoId);
-      if (participantParams) {
-        participantParams.forEach(p => queryParams.append('participant', p));
-      }
-      console.log("selected participants: ",participantParams);
+      participantParams.forEach(p => queryParams.append('participant', p));
+      console.log("selected participants: ", participantParams);
       if (regionParams) {
         regionParams.forEach(r => queryParams.append('region', r));
       }
@@ -515,31 +467,24 @@
       const stimuliQuery = `/api/stimuli?video_id=${videoId}`;
 
       Promise.all([
-        fetch(eegQuery).then(res => res.json()),
+        fetch(eegQuery).then(res => {
+          if (!res.ok) throw new Error(`EEG request failed (${res.status})`);
+          return res.json();
+        }),
         fetch(stimuliQuery).then(res => res.json())
       ])
         .then(([eegData, stimuliData]) => {
-          const baseDatasetCount = SHOW_ATTENTION ? 2 : 1;
           chart.data.labels = Array.from({ length: eegData.meta.length }, (_, i) => i);
-          chart.data.datasets = chart.data.datasets.slice(0, baseDatasetCount); // Reset to only base dataset(s)
-
-          // Update the main datasets with cleaned data
-          chart.data.datasets[0].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.engagement || []);
-          if (SHOW_ATTENTION) {
-            chart.data.datasets[1].data = cleanDataForChart(eegData[Object.keys(eegData)[0]]?.attention || []);
-          }
-          
-          if (regionParams) {
-            updateChartWithRegions(participantParams, regionParams, merge, eegData);
-          } else {
-            updateChartwithoutRegions(participantParams, merge, eegData);
-          }
+          chart.data.datasets = buildDatasetsFromResult(eegData, participantParams);
           chart.options.plugins['stimuli-overlay'].stimuli = stimuliData;
           chart.options.plugins['stimuli-overlay'].selectedStimuli = selectedStimuli;
-          chart.update();            
+          chart.update();
         })
         .catch(err => {
           console.error("Failed to fetch EEG or stimuli data:", err);
+          // Surface it: a silently swallowed error just leaves the previous
+          // chart on screen, which looks like the filters did nothing.
+          filterMessage.textContent = `Could not load data: ${err.message}`;
         });
     });
   </script>

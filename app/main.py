@@ -310,12 +310,24 @@ async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "videos": videos})
 
 
+def _gaze_video_path(video_path: str) -> str:
+    """Gaze-overlay counterpart of a DV file, e.g. '0.mp4' -> '0_gaze.mp4'."""
+    stem, ext = os.path.splitext(video_path)
+    return f"{stem}_gaze{ext}"
+
+
 @app.get("/player", response_class=HTMLResponse)
-async def player(request: Request, id: str, normalize: bool = Query(False)):
+async def player(request: Request, id: str, normalize: bool = Query(False),
+                 gaze: bool = Query(False)):
     """Video player page with synchronized EEG engagement/attention overlays
-    and stimulus annotations."""
-    print(f"[/player] video_id={id} normalize={normalize}")
+    and stimulus annotations. `gaze=true` plays the gaze-overlay version of
+    the video when one exists in DVs/."""
+    print(f"[/player] video_id={id} normalize={normalize} gaze={gaze}")
     video = get_video_by_video_id(id)
+    gaze_video_path = _gaze_video_path(video["video_path"])
+    gaze_available = os.path.exists(os.path.join(DATA_DIR, "DVs", gaze_video_path))
+    if gaze and not gaze_available:
+        print(f"[/player] gaze video {gaze_video_path} not found, using original")
     stimuli_list, stimulus_types = get_stimuli_by_video_id(id)
     print(f"[/player] {len(stimuli_list)} stimulus event(s), {len(stimulus_types)} stimulus type(s)")
     eng_data, atn_data = get_eeg_data_by_video_id(id, str(normalize).lower())
@@ -325,6 +337,9 @@ async def player(request: Request, id: str, normalize: bool = Query(False)):
     return templates.TemplateResponse("player.html", {
         "request": request,
         "video": video,
+        "gaze_video_path": gaze_video_path,
+        "gaze_available": gaze_available,
+        "use_gaze": gaze and gaze_available,
         "eng_data": eng_data,
         "atn_data": atn_data,
         "stimuli_data": stimuli_list,

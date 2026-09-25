@@ -82,6 +82,10 @@ body {
   flex-grow: 1;
 }
 
+#videoMessage:empty {
+  display: none;
+}
+
 #applyFilters {
   width: 100%;
   padding: 0.5em;

@@ -7,11 +7,16 @@
 </head>
 
 <body>
+    <label id="gazeToggleLabel" style="display: inline-block; margin: 10px 20px 0; font-size: 1rem; cursor: pointer;">
+        <input type="checkbox" id="gazeToggle">
+        Open videos with gaze data
+    </label>
+
     <h1>Data Videos (DVs)</h1>
     <div class="card-container">
         {% for video in videos %}
         {% if video.id in [4, 5] %}
-        <div class="card" onclick="location.href='/player?id={{ video.id }}'">
+        <div class="card" onclick="openVideo({{ video.id }})">
             <div class="color-block" style="background-color: {{ video.color or '#cccccc' }};"></div>
             <div class="card-info">
                 <h2>{{ video.title }}</h2>
@@ -26,7 +31,7 @@
     <div class="card-container">
         {% for video in videos %}
         {% if video.id in [0, 1, 2, 3] %}
-        <div class="card" onclick="location.href='/player?id={{ video.id }}'">
+        <div class="card" onclick="openVideo({{ video.id }})">
             <div class="color-block" style="background-color: {{ video.color or '#cccccc' }};"></div>
             <div class="card-info">
                 <h2>{{ video.title }}</h2>
@@ -36,6 +41,20 @@
         {% endif %}
         {% endfor %}
     </div>
+
+    <script>
+        const gazeToggle = document.getElementById('gazeToggle');
+
+        // Remember the choice between visits (the player page updates it too).
+        try { gazeToggle.checked = localStorage.getItem('useGazeVideos') === 'true'; } catch (err) {}
+        gazeToggle.addEventListener('change', () => {
+            try { localStorage.setItem('useGazeVideos', gazeToggle.checked ? 'true' : 'false'); } catch (err) {}
+        });
+
+        function openVideo(id) {
+            location.href = `/player?id=${id}` + (gazeToggle.checked ? '&gaze=true' : '');
+        }
+    </script>
 </body>
 
 </html>

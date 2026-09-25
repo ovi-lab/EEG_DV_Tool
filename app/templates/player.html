@@ -12,7 +12,7 @@
   <div id="viewer-container">
     <div id="viewer-right-child">
       <video controls id="video-player">
-        <source src="/static/data/mdvs/{{ video.video_path }}" type="video/mp4">
+        <source src="/static/data/DVs/{{ gaze_video_path if use_gaze else video.video_path }}" type="video/mp4">
         Your browser does not support the video tag.
       </video>
       <!-- label for the stimuli to be added -->
@@ -26,6 +26,13 @@
     </div>
     <div id="viewer-left-child">
       <div id="filters">
+        <label id="gazeToggleLabel" style="font-size: 0.9em;{% if not gaze_available %} color: #999;{% endif %}"
+          {% if not gaze_available %}title="No {{ gaze_video_path }} in DVs/"{% endif %}>
+          <input type="checkbox" id="gazeToggle" {% if use_gaze %}checked{% endif %} {% if not gaze_available %}disabled{% endif %}>
+          Show gaze data{% if not gaze_available %} (not available){% endif %}
+        </label>
+        <div id="videoMessage" style="font-size: 0.85em; color: #b00;"></div>
+
         <div class="dropdown" id="participantDropdownWrapper">
           <button class="dropdown-btn" id="participantDropdownBtn">All Participants
                 <span class="dropdown-icon">▼</span>
@@ -375,6 +382,40 @@
       clearInterval(syncInterval);
       syncInterval = null;
       updateSyncLine();
+    });
+
+    //Gaze / original video toggle
+    const ORIGINAL_VIDEO_SRC = '/static/data/DVs/{{ video.video_path }}';
+    const GAZE_VIDEO_SRC = '/static/data/DVs/{{ gaze_video_path }}';
+
+    // A file whose video codec the browser can't decode (e.g. MPEG-4 Part 2)
+    // still plays its audio, but reports no picture size. Say so instead of
+    // leaving a blank frame.
+    video.addEventListener('loadedmetadata', () => {
+      const file = video.currentSrc.split('/').pop();
+      document.getElementById('videoMessage').textContent = video.videoWidth === 0
+        ? `This browser can't decode the video track of ${file}. Re-encode it to H.264.`
+        : '';
+    });
+
+    document.getElementById('gazeToggle').addEventListener('change', e => {
+      const useGaze = e.target.checked;
+      // Swap the file without losing the viewer's place in the video.
+      const resumeAt = video.currentTime;
+      const wasPlaying = !video.paused && !video.ended;
+      video.querySelector('source').src = useGaze ? GAZE_VIDEO_SRC : ORIGINAL_VIDEO_SRC;
+      video.load();
+      video.addEventListener('loadedmetadata', () => {
+        video.currentTime = resumeAt;
+        if (wasPlaying) video.play();
+      }, { once: true });
+
+      // Keep the choice in the URL (survives reload) and for the index page.
+      const url = new URL(window.location);
+      if (useGaze) url.searchParams.set('gaze', 'true');
+      else url.searchParams.delete('gaze');
+      history.replaceState(null, '', url);
+      try { localStorage.setItem('useGazeVideos', useGaze ? 'true' : 'false'); } catch (err) {}
     });
 
     function buildDatasetsFromResult(fetchedData, selectedParticipants) {

@@ -82,6 +82,36 @@ body {
   flex-grow: 1;
 }
 
+#sidebarToggle {
+  align-self: flex-start;
+  padding: 0.2em 0.6em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 1em;
+  line-height: 1.2;
+  color: #555;
+}
+
+#sidebarToggle:hover {
+  background: #f0f0f0;
+}
+
+/* Collapsed: keep only the toggle button and give the freed width to the
+   video and plot. */
+#viewer-container.sidebar-collapsed #filters {
+  display: none;
+}
+
+#viewer-container.sidebar-collapsed #viewer-left-child {
+  flex: 0 0 auto;
+}
+
+#viewer-container.sidebar-collapsed #viewer-right-child {
+  max-width: none;
+}
+
 #videoMessage:empty {
   display: none;
 }

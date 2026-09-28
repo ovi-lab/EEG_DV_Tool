@@ -25,6 +25,7 @@
       </div>
     </div>
     <div id="viewer-left-child">
+      <button id="sidebarToggle" type="button" title="Hide filters" aria-label="Hide filters" aria-expanded="true">«</button>
       <div id="filters">
         <label id="gazeToggleLabel" style="font-size: 0.9em;{% if not gaze_available %} color: #999;{% endif %}"
           {% if not gaze_available %}title="No {{ gaze_video_path }} in DVs/"{% endif %}>
@@ -325,6 +326,9 @@
       },
       options: {
         responsive: true,
+        // Fill the panel instead of keeping a fixed ratio; otherwise the fixed
+        // panel height caps the width and the plot can't use freed-up space.
+        maintainAspectRatio: false,
         scales: {
           x: { 
             title: { display: true, text: 'Time (index)' }
@@ -382,6 +386,30 @@
       clearInterval(syncInterval);
       syncInterval = null;
       updateSyncLine();
+    });
+
+    //Collapsible sidebar
+    const viewerContainer = document.getElementById('viewer-container');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+
+    function setSidebarCollapsed(collapsed) {
+      viewerContainer.classList.toggle('sidebar-collapsed', collapsed);
+      sidebarToggle.textContent = collapsed ? '»' : '«';
+      const label = collapsed ? 'Show filters' : 'Hide filters';
+      sidebarToggle.title = label;
+      sidebarToggle.setAttribute('aria-label', label);
+      sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+      // Re-measure now rather than waiting on Chart.js's resize detection,
+      // which can leave the plot at its old width.
+      chart.resize();
+    }
+
+    try { setSidebarCollapsed(localStorage.getItem('sidebarCollapsed') === 'true'); } catch (err) {}
+
+    sidebarToggle.addEventListener('click', () => {
+      const collapsed = !viewerContainer.classList.contains('sidebar-collapsed');
+      setSidebarCollapsed(collapsed);
+      try { localStorage.setItem('sidebarCollapsed', String(collapsed)); } catch (err) {}
     });
 
     //Gaze / original video toggle

@@ -448,12 +448,13 @@
 
     function buildDatasetsFromResult(fetchedData, selectedParticipants) {
       const datasets = [];
+      const nextColor = makeDistinctColorPicker();
       Object.keys(fetchedData).filter(k => k !== 'meta').forEach(key => {
         const entry = fetchedData[key];
         datasets.push({
           label: formatDatasetLabel('Engagement', key, selectedParticipants),
           data: cleanDataForChart(entry.engagement),
-          borderColor: getRandomColor(),
+          borderColor: nextColor(),
           borderWidth: 1,
           pointRadius: 0,
           tension: 0.3,
@@ -463,7 +464,7 @@
           datasets.push({
             label: formatDatasetLabel('Attention', key, selectedParticipants),
             data: cleanDataForChart(entry.attention),
-            borderColor: getRandomColor(),
+            borderColor: nextColor(),
             borderWidth: 1,
             pointRadius: 0,
             tension: 0.3,
@@ -488,13 +489,25 @@
       return region ? `${base} (${idLabel} - ${region})` : `${base} (${idLabel})`;
     }
 
-    function getRandomColor() {
-      var letters = '0123456789ABCDEF';
-      var color = '#';
-      for (var i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-      }
-      return color;
+    // Returns a function giving a new, well-separated line color on each call.
+    // The starting hue is random, so colors still change from one Apply to the
+    // next. Each next hue is the golden angle (~137.5°) further round the color
+    // wheel, which keeps any number of lines spread out, rather than letting
+    // two land on near-identical shades as fully random colors can.
+    function makeDistinctColorPicker() {
+      const GOLDEN_ANGLE = 137.508;
+      const startHue = Math.random() * 360;
+      let i = 0;
+      return () => {
+        const hue = (startHue + i * GOLDEN_ANGLE) % 360;
+        // Alternate darker/lighter shades so neighbouring lines differ in
+        // brightness too, which helps when many are shown.
+        let lightness = i % 2 === 0 ? 40 : 52;
+        // Yellows are hard to see on white and on the pale element overlays.
+        if (hue > 40 && hue < 80) lightness -= 12;
+        i++;
+        return `hsl(${hue.toFixed(0)}, 75%, ${lightness}%)`;
+      };
     }
 
     document.getElementById('applyFilters').addEventListener('click', () => {

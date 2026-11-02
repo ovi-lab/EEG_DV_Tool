@@ -2,6 +2,8 @@
 
 A web-based tool for visualizing and analyzing EEG engagement and attention indices from participants watching Data Videos (DVs) and Micro Data Videos (mDVs). Enables researchers to explore the relationship between DV elements (stimuli) and EEG brain activity patterns.
 
+https://github.com/user-attachments/assets/48a233bd-c5ee-405d-8b59-0cf5732ea086
+
 ## Features
 
 - Synchronized video player and EEG time-series chart
